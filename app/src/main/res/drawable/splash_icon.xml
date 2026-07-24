@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PLACEHOLDER — Design Agent will replace per Asset D (SplashScreen API icon,
+     same logo as ic_launcher_foreground but sized for splash use, 120×120dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <group android:scaleX="0.66"
+           android:scaleY="0.66"
+           android:translateX="20.4"
+           android:translateY="20.4">
+        <path
+            android:fillColor="#7C5CFF"
+            android:pathData="M18,28 L18,80 L36,80 L36,64 L48,64 L48,80 L66,80 L66,28 L18,28 Z M36,40 L48,40 L48,52 L36,52 L36,40 Z" />
+        <path
+            android:fillColor="#A78BFA"
+            android:pathData="M72,28 L90,28 L90,80 L72,80 Z" />
+    </group>
+</vector>

@@ -1,0 +1,30 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base app theme: Material 3, dark, no action bar.
+         Used as the parent for the splash theme so window background
+         matches the app surface. -->
+    <style name="Theme.Play2Pdf" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/surface0</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:enforceNavigationBarContrast" tools:targetApi="q">false</item>
+        <item name="android:enforceStatusBarContrast" tools:targetApi="q">false</item>
+    </style>
+
+    <!-- Splash theme: extends base, but uses the SplashScreen API post window
+         attach (set in MainActivity via installSplashScreen()).
+         The windowBackground is set to surface0 so there's no white flash. -->
+    <style name="Theme.Play2Pdf.Splash" parent="Theme.Play2Pdf">
+        <item name="android:windowBackground">@color/surface0</item>
+    </style>
+
+    <!-- Sub-theme for the Android 12+ SplashScreen API. -->
+    <style name="Theme.Play2Pdf.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/surface0</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/surface0</item>
+        <item name="postSplashScreenTheme">@style/Theme.Play2Pdf</item>
+    </style>
+
+</resources>

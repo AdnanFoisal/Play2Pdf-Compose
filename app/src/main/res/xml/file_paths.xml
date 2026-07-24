@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Cache dir — used by CompileRepository for compiled PDFs -->
+    <cache-path name="pdf_cache" path="pdfs/" />
+    <!-- External cache dir — used by SavePdfToDownloadsUseCase on legacy paths -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- Files dir — for any other internal files we want to share -->
+    <files-path name="files" path="." />
+</paths>

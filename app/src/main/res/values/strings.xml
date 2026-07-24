@@ -1,0 +1,97 @@
+<resources>
+    <string name="app_name">Play2PDF</string>
+
+    <!-- Notification channel for "PDF ready" notifications -->
+    <string name="notification_channel_id">pdf_ready</string>
+    <string name="notification_channel_name">PDF Ready</string>
+    <string name="notification_channel_desc">Notifies you when a study guide PDF has finished compiling.</string>
+
+    <!-- Splash -->
+    <string name="splash_icon_desc">Play2PDF logo</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_page_1_title">Drop a playlist. Get a study guide.</string>
+    <string name="onboarding_page_1_subtitle">Paste any YouTube course playlist and we\'ll turn it into a structured PDF syllabus.</string>
+    <string name="onboarding_page_2_title">AI maps every topic to the right video.</string>
+    <string name="onboarding_page_2_subtitle">Gemini reads every video title and matches each syllabus topic to the most relevant lecture.</string>
+    <string name="onboarding_page_3_title">Print-ready. LaTeX-grade. Yours.</string>
+    <string name="onboarding_page_3_subtitle">Themed cover pages, QR codes for each video, and a checklist grid — all yours to keep.</string>
+
+    <!-- Compile screen -->
+    <string name="compile_title">Compile</string>
+    <string name="compile_header_title">Turn playlists into PDFs.</string>
+    <string name="compile_header_subtitle">One playlist in. One study guide out.</string>
+    <string name="compile_playlist_input_label">YouTube Playlist URL</string>
+    <string name="compile_playlist_input_placeholder">https://www.youtube.com/playlist?list=…</string>
+    <string name="compile_add_playlist">Add playlist</string>
+    <string name="compile_topics_label">Syllabus Topics</string>
+    <string name="compile_topics_placeholder">Enter topics (comma or newline separated)</string>
+    <string name="compile_extract_topics">Auto-extract topics</string>
+    <string name="compile_subject_label">Subject</string>
+    <string name="compile_subject_placeholder">e.g. Data Structures &amp; Algorithms</string>
+    <string name="compile_author_label">Author</string>
+    <string name="compile_author_placeholder">Your name</string>
+    <string name="compile_theme_label">PDF Theme</string>
+    <string name="compile_button">Compile Study Guide</string>
+    <string name="compile_featured_title">Featured Playlists</string>
+
+    <!-- History screen -->
+    <string name="history_title">History</string>
+    <string name="history_search_placeholder">Search by subject or topic…</string>
+    <string name="history_empty_title">No PDFs yet</string>
+    <string name="history_empty_subtitle">Your compiled study guides will appear here.</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_week">This Week</string>
+    <string name="history_filter_month">This Month</string>
+    <string name="history_filter_subject">By Subject</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_api_keys">API Keys</string>
+    <string name="settings_yt_key_label">YouTube Data API v3 Key</string>
+    <string name="settings_gemini_key_label">Gemini API Key</string>
+    <string name="settings_test_connection">Test Connection</string>
+    <string name="settings_section_backend">Backend</string>
+    <string name="settings_backend_url_label">Backend URL</string>
+    <string name="settings_backend_status_online">Online</string>
+    <string name="settings_backend_status_offline">Offline</string>
+    <string name="settings_backend_status_checking">Checking…</string>
+    <string name="settings_section_user">You</string>
+    <string name="settings_user_name_label">Your Name</string>
+    <string name="settings_section_preferences">Preferences</string>
+    <string name="settings_sound_toggle">Sound Effects</string>
+    <string name="settings_haptics_toggle">Haptic Feedback</string>
+    <string name="settings_section_pdf_theme">PDF Theme</string>
+
+    <!-- Compiling screen -->
+    <string name="compiling_title">Compiling…</string>
+    <string name="compiling_cancel">Cancel</string>
+    <string name="compiling_success_title">Study guide ready!</string>
+    <string name="compiling_open">Open</string>
+    <string name="compiling_save">Save to Downloads</string>
+    <string name="compiling_error_title">Compilation failed</string>
+    <string name="compiling_try_again">Try Again</string>
+    <string name="compiling_copy_error">Copy Error</string>
+    <string name="compiling_cancel_confirm_title">Cancel compilation?</string>
+    <string name="compiling_cancel_confirm_body">Your progress will be lost.</string>
+    <string name="compiling_cancel_confirm_keep">Keep Compiling</string>
+    <string name="compiling_cancel_confirm_yes">Cancel</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_compile">Compile</string>
+    <string name="nav_history">History</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="action_retry">Retry</string>
+    <string name="action_close">Close</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_share">Share</string>
+    <string name="action_open_external">Open externally</string>
+    <string name="cd_press_to_test">Press to test</string>
+    <string name="cd_more_options">More options</string>
+</resources>

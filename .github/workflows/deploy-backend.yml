@@ -1,0 +1,48 @@
+name: Deploy backend to HuggingFace Space
+
+# Trigger: push to main that touches backend/. The HF Space's webhook
+# can also auto-redeploy on push, but having a GH Action gives us a
+# deploy log + failure notification.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install huggingface_hub
+        run: pip install huggingface_hub
+
+      - name: Push backend to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "HF_TOKEN not set — skipping deploy"
+            exit 0
+          fi
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          api.upload_folder(
+              folder_path="backend",
+              repo_id="adnanfoisal/play2pdf",
+              repo_type="space",
+              ignore_patterns=["README.md", "*.pyc", "__pycache__/**"],
+          )
+          print("Uploaded backend to HF Space")
+          PY

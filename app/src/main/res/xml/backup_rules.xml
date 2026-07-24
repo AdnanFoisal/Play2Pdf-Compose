@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Persist user settings + history. API keys are deliberately included
+         so the user doesn't have to re-enter them after a restore. If you
+         want to exclude API keys, add <exclude domain="sharedpref"
+         path="play2pdf_settings.preferences_pb"/>. -->
+    <include domain="sharedpref" path="."/>
+    <include domain="database" path="."/>
+</full-backup-content>

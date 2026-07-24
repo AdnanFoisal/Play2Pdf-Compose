@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-app logo mark — placeholder until Design Agent delivers Asset E. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:fillColor="#7C5CFF"
+        android:pathData="M16,24 L16,72 L32,72 L32,56 L42,72 L62,72 L42,44 L62,44 L62,24 L16,24 Z M32,36 L46,36 L46,46 L32,46 L32,36 Z" />
+</vector>
