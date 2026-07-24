@@ -1,1927 +1,1280 @@
-# Play2PDF — Premium Design Plan (Kotlin + Jetpack Compose Edition)
+# Play2PDF — Implementation Plan (Roles Divided v3.0)
 
-> **Honesty mode: ON.** This document is not a back-pat. It is a frank
-> list of everything currently making Play2PDF look like a 48-hour
-> hackathon entry instead of a $9.99/mo product, and exactly what to
-> do about each one — implemented against the **Kotlin + Jetpack
-> Compose** tech stack that we are migrating to from the old
-> Python/Flet prototype.
+> **This is the master plan that splits all work into two clear
+> scopes:** what the **Code Agent** (me) builds vs what the **Design
+> Agent** (a separate AI / designer) produces. Every line item in the
+> app has a single owner, a single handoff protocol, and a single
+> acceptance criterion.
 
-**Document version:** 2.0 (Kotlin/Compose rewrite)
+**Document version:** 3.0 (Roles Divided)
 **Last updated:** 2026-07-24
-**Tech stack:** Kotlin 2.0+, Jetpack Compose 1.7+, Material 3,
-Coroutines, Hilt, Room, Retrofit/Ktor, Coil, Lottie/Rive
-**Backend stack:** Unchanged — FastAPI + Gemini 3.6 Flash + YouTube
-Data API v3 + fpdf2 + qrcode
-**Audience:** You, the designer you hire, and the AI that helps you
-implement it.
+**Supersedes:** `PREMIUM_DESIGN_PLAN.md` v2.0 (kept as technical reference appendix)
+**Tech stack:** Kotlin 2.0+ / Jetpack Compose 1.7+ / Hilt / Room / Retrofit / Coil / Lottie / Rive
+**Backend:** FastAPI + Gemini 3.6 Flash + YouTube Data API v3 (unchanged, reused as-is)
 
 ---
 
 ## Table of Contents
 
-1. [Why Rewrite in Kotlin + Jetpack Compose?](#1-why-rewrite-in-kotlin--jetpack-compose)
-2. [The Brutal Truth (Where We Are Today)](#2-the-brutal-truth-where-we-are-today)
-3. [What "Premium" Actually Means](#3-what-premium-actually-means)
-4. [Project Architecture](#4-project-architecture)
-5. [Brand Identity — The Foundation](#5-brand-identity--the-foundation)
-6. [Asset Inventory — What To Produce](#6-asset-inventory--what-to-produce)
-7. [Visual System — Color, Type, Space, Motion](#7-visual-system--color-type-space-motion)
-8. [Design System in Compose](#8-design-system-in-compose)
-9. [Component-Level Premium Polish](#9-component-level-premium-polish)
-10. [Screen-by-Screen Premium Redesign](#10-screen-by-screen-premium-redesign)
-11. [Micro-Interactions & Motion Design](#11-micro-interactions--motion-design)
-12. [Sound & Haptics](#12-sound--haptics)
-13. [Implementation Order & Priority](#13-implementation-order--priority)
-14. [Asset Generation Toolkit](#14-asset-generation-toolkit)
-15. [Quality Checklist](#15-quality-checklist)
+0. [Roles & Responsibilities Matrix](#0-roles--responsibilities-matrix)
+1. [Part 1 — Code Agent Scope (What I Build)](#1-part-1--code-agent-scope-what-i-build)
+2. [Part 2 — Design Agent Scope (What the Other Agent Produces)](#2-part-2--design-agent-scope-what-the-other-agent-produces)
+3. [Dependencies & Handoff Protocol](#3-dependencies--handoff-protocol)
+4. [Implementation Timeline (Parallel Work Streams)](#4-implementation-timeline-parallel-work-streams)
+5. [Quality Checklist (Joint)](#5-quality-checklist-joint)
+6. [Appendix A — Reference to v2.0 Technical Detail](#6-appendix-a--reference-to-v20-technical-detail)
 
 ---
 
-## 1. Why Rewrite in Kotlin + Jetpack Compose?
+## 0. Roles & Responsibilities Matrix
 
-The original app was written in Python + Flet. Flet was a great
-prototyping choice — it got us from zero to a working app in a
-weekend. But Flet's design ceiling is low:
+Two agents work in parallel. Each work item has exactly ONE owner.
 
-- **Performance ceiling.** Flet renders Flutter Web on desktop and
-  Flutter Mobile on Android — but every UI update goes through a
-  Python ↔ Dart message bridge. At 60fps scrolling this becomes
-  visible jank.
-- **Asset pipeline hell.** Flet's asset pipeline is brittle (the
-  JPEGs-as-PNGs bug we hit, the broken Android adaptive icons, the
-  silent Web CanvasKit paint-drop on multi-shadow rgba containers).
-  Each Flet version changes the rules.
-- **Native API access.** Things like proper HapticFeedback patterns,
-  SystemUI controller, Android 13 themed icons, predictive back
-  gestures, share sheets, deep links — all require native code which
-  Flet doesn't expose.
-- **Custom drawing.** Custom splash animations, real BackdropFilter
-  blur, neon glow with multiple stacked RenderEffect layers — Flet
-  does these badly or not at all. Compose does them natively.
+### 0.1 Ownership principles
 
-Jetpack Compose is the right answer because:
-- **Native performance.** Compose compiles to Kotlin bytecode and
-  runs on the JVM directly. No bridge.
-- **Modern declarative UI.** Same mental model as Flutter (which
-  Flet mimics) but with Kotlin syntax — easier to migrate.
-- **Full Android API access.** Everything Android supports is
-  available natively — predictive back, themed icons, edge-to-edge,
-  Material You dynamic colors, system bar styling, predictive
-  animation, etc.
-- **Best-in-class tooling.** Android Studio + Compose previews +
-  Layout Inspector + Database Inspector + Network Inspector — all
-  free, all first-party.
-- **Long-term supported.** Google has committed to Compose as the
-  primary Android UI framework.
+1. **Code structure = Code Agent.** Anything that lives in a `.kt`
+   file is mine — composables, ViewModels, repositories, DI modules,
+   network clients, database entities, animations logic, haptics
+   wiring, sound wiring.
+2. **Visual assets = Design Agent.** Anything that lives in `res/`
+   as a binary file or vector XML — icons, illustrations, splash
+   animation, PDF theme previews, sound effect WAVs, Lottie JSONs,
+   font files.
+3. **Brand decisions = Design Agent.** Picking the brand color,
+   picking the type pairing, designing the logo, picking illustration
+   style. Code Agent uses whatever values the Design Agent locks,
+   with placeholders from the v2.0 recommendations until then.
+4. **Universal design principles = Code Agent.** 8-pt grid, 3-step
+   radius scale, 4.5:1 contrast ratios — these are non-negotiable
+   best practices, not creative decisions. Code Agent enforces them
+   in tokens.
+5. **Handoff protocol = both.** Design Agent delivers assets to a
+   fixed path in the repo. Code Agent writes code that imports from
+   those fixed paths. If the path or filename changes, both agents
+   update.
 
-This rewrite also fixes the original "looks like slop" problem at the
-source: we ship a real brand, real custom icons, real motion design,
-and real polish — none of which was possible inside Flet's constraints.
+### 0.2 Ownership matrix
 
----
+| Work item | Owner | Deliverable format | Path |
+|-----------|-------|--------------------|------|
+| Brand color choice | Design Agent | Hex string in brand spec doc | — |
+| Brand color implementation | Code Agent | `Color.kt` constant | `app/src/main/java/.../theme/Color.kt` |
+| Type pairing choice | Design Agent | Font family names + weights | — |
+| Font files (TTF/OTF) | Design Agent | `.ttf` or `.otf` files | `app/src/main/res/font/` |
+| Typography implementation | Code Agent | `Type.kt` TextStyle definitions | `app/src/main/java/.../theme/Type.kt` |
+| Logo mark design | Design Agent | SVG source + PNG exports | `design/logo/` + `app/src/main/res/drawable/` |
+| Wordmark design | Design Agent | SVG source | `design/logo/` + `app/src/main/res/drawable/` |
+| Adaptive icon (foreground) | Design Agent | VectorDrawable XML | `app/src/main/res/drawable/ic_launcher_foreground.xml` |
+| Adaptive icon (background) | Design Agent | VectorDrawable XML | `app/src/main/res/drawable/ic_launcher_background.xml` |
+| Adaptive icon (monochrome) | Design Agent | VectorDrawable XML | `app/src/main/res/drawable/ic_launcher_monochrome.xml` |
+| Adaptive icon (mipmap XML) | Code Agent | `<adaptive-icon>` XML | `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` |
+| Splash icon (native) | Design Agent | VectorDrawable XML | `app/src/main/res/drawable/splash_icon.xml` |
+| Splash screen composable | Code Agent | `SplashScreen.kt` | `app/src/main/java/.../ui/splash/` |
+| Splash animation (Rive) | Design Agent | `.riv` file | `app/src/main/res/raw/splash_logo.riv` |
+| Splash animation wiring | Code Agent | `RiveAnimation` composable call | inside `SplashScreen.kt` |
+| Onboarding illustrations (3) | Design Agent | VectorDrawable XML or PNG | `app/src/main/res/drawable/onboarding_*.xml` |
+| Onboarding screen composable | Code Agent | `OnboardingScreen.kt` | `app/src/main/java/.../ui/onboarding/` |
+| Custom icon set (24 icons) | Design Agent | SVG source files | `design/icons/*.svg` |
+| Custom icon set (Kotlin ImageVector) | Code Agent | `Icon*.kt` files | `app/src/main/java/.../core/designsystem/components/icons/` |
+| Empty-state illustrations (3) | Design Agent | VectorDrawable XML | `app/src/main/res/drawable/empty_*.xml` |
+| Empty-state composables | Code Agent | `EmptyState.kt` | `app/src/main/java/.../components/` |
+| PDF theme preview thumbnails (13) | Design Agent | PNG files | `app/src/main/res/drawable-nodpi/pdf_theme_*.png` |
+| Theme picker composable | Code Agent | `ThemePreviewCard.kt` | `app/src/main/java/.../ui/settings/components/` |
+| Sound effects (6 WAV) | Design Agent | WAV files | `app/src/main/res/raw/sfx_*.wav` |
+| `SoundManager.kt` | Code Agent | Kotlin class | `app/src/main/java/.../core/sound/SoundManager.kt` |
+| Success confetti Lottie | Design Agent | `.json` file | `app/src/main/res/raw/success_confetti.json` |
+| Confetti composable wiring | Code Agent | `SuccessConfetti.kt` | `app/src/main/java/.../components/` |
+| Color tokens (`Color.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../theme/Color.kt` |
+| Type tokens (`Type.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../theme/Type.kt` |
+| Shape tokens (`Shape.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../theme/Shape.kt` |
+| Spacing tokens (`Spacing.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../tokens/Spacing.kt` |
+| Motion tokens (`Motion.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../tokens/Motion.kt` |
+| Theme entry (`Theme.kt`) | Code Agent | Kotlin file | `app/src/main/java/.../theme/Theme.kt` |
+| `PrimaryButton` composable | Code Agent | `Button.kt` | `app/src/main/java/.../components/` |
+| `PremiumCard` composable | Code Agent | `Card.kt` | `app/src/main/java/.../components/` |
+| `GlassCard` composable | Code Agent | `Card.kt` | `app/src/main/java/.../components/` |
+| `AnimatedChip` composable | Code Agent | `Chip.kt` | `app/src/main/java/.../components/` |
+| Custom bottom nav composable | Code Agent | `NavBar.kt` | `app/src/main/java/.../components/` |
+| `ShimmerSkeleton` composable | Code Agent | `Skeleton.kt` | `app/src/main/java/.../components/` |
+| `Modifier.neonGlow` extension | Code Agent | `Modifier.neonGlow.kt` | `app/src/main/java/.../effects/` |
+| `Modifier.pressScale` extension | Code Agent | `Modifier.pressScale.kt` | `app/src/main/java/.../effects/` |
+| Retrofit API client | Code Agent | `Play2PdfApi.kt` + DTOs | `app/src/main/java/.../data/api/` |
+| Room database | Code Agent | `Play2PdfDatabase.kt` + DAOs + entities | `app/src/main/java/.../data/db/` |
+| DataStore preferences | Code Agent | `SettingsRepository.kt` | `app/src/main/java/.../data/prefs/` |
+| Repositories | Code Agent | `*Repository.kt` | `app/src/main/java/.../data/repository/` |
+| Hilt DI modules | Code Agent | `*Module.kt` | `app/src/main/java/.../di/` |
+| Domain models (dataclasses) | Code Agent | `*.kt` | `app/src/main/java/.../domain/model/` |
+| Use cases | Code Agent | `*UseCase.kt` | `app/src/main/java/.../domain/usecase/` |
+| ViewModels | Code Agent | `*ViewModel.kt` | `app/src/main/java/.../ui/*/` |
+| Screen composables (all 6) | Code Agent | `*Screen.kt` | `app/src/main/java/.../ui/*/` |
+| Navigation host | Code Agent | `Play2PdfNavHost.kt` | `app/src/main/java/.../ui/navigation/` |
+| `HapticsManager.kt` | Code Agent | Kotlin class | `app/src/main/java/.../core/haptics/` |
+| Edge-to-edge + system bars | Code Agent | `Theme.kt` SideEffect | `app/src/main/java/.../theme/Theme.kt` |
+| Predictive back gesture | Code Agent | `AndroidManifest.xml` + `BackHandler` | manifest + composables |
+| SplashScreen API (Android 12+) | Code Agent | themes.xml + `MainActivity.kt` | res + java |
+| Backend (FastAPI) maintenance | Code Agent | `server.py` + `requirements.txt` | `backend/` |
+| Backend deployment (HF Space) | Code Agent | Dockerfile + space config | `backend/Dockerfile` |
+| `AndroidManifest.xml` | Code Agent | XML | `app/src/main/AndroidManifest.xml` |
+| `build.gradle.kts` (root + app) | Code Agent | Kotlin DSL | root + `app/` |
+| `libs.versions.toml` (version catalog) | Code Agent | TOML | `gradle/` |
+| ProGuard rules | Code Agent | `proguard-rules.pro` | `app/` |
+| Final Figma mockups (all screens) | Design Agent | Figma file | shared via Figma link |
+| Brand spec document | Design Agent | Markdown | `design/BRAND_SPEC.md` |
 
-## 2. The Brutal Truth (Where We Are Today)
+### 0.3 Summary counts
 
-This audit applies to the old Flet app. The Compose rewrite is the
-opportunity to NOT inherit any of these.
-
-### 2.1 The "assets" folder was actively sabotaging the app
-
-- Three of the four "icon" files were **the same file** byte-for-byte
-  (all 462,063 bytes).
-- All asset files were **JPEGs renamed to .png** — no alpha channel,
-  which is why the Android adaptive icon pipeline silently refused
-  them.
-- The "hero banner" was a 1024×1024 square being asked to fill a wide
-  slot — squashed on every device.
-- The "empty state illustration" was a stock-photo JPEG.
-
-**Status:** Already deleted in commit `5102647` of the old repo.
-The Compose rewrite starts asset-clean.
-
-### 2.2 The "logo" is not a logo
-
-The current splash icon is a Material `PLAY_ARROW` icon inside a
-purple rounded square. That is not a logo. Anyone who sees it knows
-no designer touched this.
-
-A real logo communicates the brand in silhouette — at 16×16, in
-black-and-white, in a favicon. See §5.4 for the spec.
-
-### 2.3 Every icon in the app is a stock Material Icon
-
-Material Icons are visually fine but they scream **"I am free"** to
-anyone with design taste. Every premium app (Linear, Things 3, Notion,
-Bear, Craft) ships a custom icon set with its own weight and stroke
-width.
-
-The Compose rewrite will use a custom `ImageVector` icon set loaded
-via custom Kotlin definitions.
-
-### 2.4 The "glassmorphism" is fake
-
-Real glassmorphism uses `BackdropFilter` to blur whatever is behind
-the surface. The old Flet code painted a translucent `LinearGradient`
-on top of the background — that's a tinted overlay, not blur.
-
-Compose has a real `Modifier.blur()` (RenderEffect-backed on Android
-12+) and `BackdropFilter`-equivalent via `Modifier.graphicsLayer` +
-`RenderEffect.createBlurEffect`. See §7.1.
-
-### 2.5 The "neon glow" looks like a CSS box-shadow
-
-Real neon glow needs 3 stacked shadows (inner core, mid halo, outer
-falloff). The old code painted a single 40px-blur shadow at 40% alpha.
-
-Compose uses a custom `Modifier.drawBehind` with a multi-layer
-`Brush.radialGradient` (see §7.2 for the helper).
-
-### 2.6 Typography hierarchy is "use Poppins everywhere"
-
-Not a type system. Premium typography has 6–8 distinct roles each
-with carefully tuned size, weight, letter-spacing, line-height, and
-color contrast. See §5.5 for the table.
-
-### 2.7 Spacing is random
-
-Old tokens: `XXS=2, XS=4, SM=6, MD=10, LG=14, XL=18, XXL=24`. Not
-the 8-pt grid every premium system uses. New scale: `4, 8, 12, 16,
-24, 32, 48, 64`. See §5.6.
-
-### 2.8 No empty states with personality
-
-Premium apps use empty states to **delight** — custom illustration,
-warm copy line, suggested next action. This is 30% of perceived
-quality on first launch.
-
-### 2.9 Loading states are a `ProgressRing`
-
-A spinning Material `ProgressRing` is the "loading" of last resort.
-Premium apps use **skeleton screens** or branded loading animations.
-
-### 2.10 The bottom nav has no personality
-
-Stock Material 3 nav bar. Premium apps ship custom navs with custom
-indicator shapes, custom active/inactive transitions, per-tab haptic
-patterns.
-
-### 2.11 No micro-interactions
-
-Old app had one spring on one button. Premium apps have dozens of
-micro-interactions. Compose's animation APIs (`animateFloatAsState`,
-`AnimatedContent`, `AnimatedVisibility`, `rememberInfiniteTransition`,
-`updateTransition`) make this trivial — there is no excuse.
-
-### 2.12 The PDF themes are 13 swatches with no preview polish
-
-13 themes shown as a 2-column grid of cards each with three tiny
-16×16 color squares. Should show miniatures of the actual PDF cover
-page (see §6.8).
+- **Code Agent deliverables:** ~60 Kotlin/XML/Gradle files
+- **Design Agent deliverables:** ~50 asset files (vectors, PNGs, WAVs, Rive, Lottie, fonts)
+- **Joint deliverables:** 1 brand spec doc, 1 final QA pass
 
 ---
 
-## 3. What "Premium" Actually Means
+## 1. Part 1 — Code Agent Scope (What I Build)
 
-Before the plan, define the bar. "Premium" is the **absence of
-anything that breaks the spell**:
+Everything that ends in `.kt`, `.xml` (excluding drawable vectors), `.kts`,
+`.toml`, `.py`, or `Dockerfile` is mine.
 
-1. **Every pixel is intentional.** Nothing is default. Every radius,
-   every shadow, every line height, every animation curve was chosen,
-   not inherited.
-2. **The brand is recognizable in silhouette.** Hide the name, hide
-   the colors — could a user still tell which app this is?
-3. **Motion has weight.** Things don't just appear. They settle, they
-   bounce, they ease. Curves match real-world physics.
-4. **Empty states are designed, not absent.** First-run UX is the most
-   expensive real estate in the app.
-5. **Errors are graceful.** 404, offline, quota-exceeded — every one
-   designed, friendly, on-brand.
-6. **The little things are right.** Status bar tint matches the app
-   background. Splash → first-screen transition is seamless. Haptic
-   feedback on every primary action.
-7. **Performance is part of premium.** 60fps scroll, sub-200ms tap
-   response, splash that doesn't outstay its welcome.
+### Phase A — Project Foundation (1 day)
 
----
+**Goal:** Empty Android Studio project that compiles and runs a "Hello
+World" Compose screen on a device.
 
-## 4. Project Architecture
+**Tasks:**
+- [ ] Create new Android Studio project with Empty Compose Activity template.
+- [ ] Set package name `com.adnanfoisal.play2pdf`, min SDK 26, target SDK 35.
+- [ ] Configure `gradle/libs.versions.toml` version catalog with all
+      dependencies (Compose, Hilt, Room, Retrofit, Moshi, OkHttp, Coil,
+      Navigation Compose, Lottie, Rive, DataStore).
+- [ ] Configure root `build.gradle.kts` with plugins.
+- [ ] Configure `app/build.gradle.kts` with all dependencies, Kotlin
+      compiler args, Compose compiler version, Java 17 target.
+- [ ] Set up `settings.gradle.kts` with `versionCatalogs` block.
+- [ ] Configure `gradle.properties` (`android.useAndroidX=true`,
+      `kotlin.code.style=official`, `org.gradle.jvmargs=-Xmx2048m`).
+- [ ] Create directory structure from §4 of v2.0 plan.
+- [ ] Set up `AndroidManifest.xml` with INTERNET permission,
+      `android:name=".Play2PdfApp"`, edge-to-edge flag, adaptive icon
+      reference (will be added by Design Agent).
+- [ ] Create `Play2PdfApp.kt` with `@HiltAndroidApp` annotation.
+- [ ] Create `MainActivity.kt` with `@AndroidEntryPoint`, `setContent {
+      Play2PdfTheme { Play2PdfNavHost() } }`.
+- [ ] Set up `themes.xml` with Material 3 base theme (dark, no action bar).
+- [ ] Verify build passes and app launches on emulator.
 
-```
-Play2Pdf-Compose/
-├── app/                                    ← Android app module
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/adnanfoisal/play2pdf/
-│   │   │   │   ├── Play2PdfApp.kt          ← Application class, Hilt
-│   │   │   │   ├── MainActivity.kt         ← Single-activity entry
-│   │   │   │   ├── core/
-│   │   │   │   │   ├── designsystem/       ← Theme, tokens, components
-│   │   │   │   │   │   ├── theme/
-│   │   │   │   │   │   │   ├── Color.kt    ← Brand palette
-│   │   │   │   │   │   │   ├── Theme.kt    ← Compose theme
-│   │   │   │   │   │   │   ├── Type.kt     ← Typography roles
-│   │   │   │   │   │   │   └── Shape.kt    ← Corner radius scale
-│   │   │   │   │   │   ├── tokens/
-│   │   │   │   │   │   │   ├── Spacing.kt  ← 8-pt grid
-│   │   │   │   │   │   │   ├── Elevation.kt← Layered shadow tokens
-│   │   │   │   │   │   │   └── Motion.kt   ← Animation curves + durations
-│   │   │   │   │   │   ├── components/
-│   │   │   │   │   │   │   ├── Button.kt   ← PrimaryButton, GhostButton
-│   │   │   │   │   │   │   ├── Card.kt     ← PremiumCard, GlassCard
-│   │   │   │   │   │   │   ├── TextField.kt← FilledTextField, SearchField
-│   │   │   │   │   │   │   ├── Chip.kt     ← AnimatedChip
-│   │   │   │   │   │   │   ├── Icon.kt     ← AppIcon, custom ImageVector set
-│   │   │   │   │   │   │   ├── NavBar.kt   ← Custom bottom nav
-│   │   │   │   │   │   │   ├── Skeleton.kt ← Shimmer skeleton loaders
-│   │   │   │   │   │   │   └── ...
-│   │   │   │   │   │   └── effects/
-│   │   │   │   │   │       ├── Modifier.neonGlow.kt
-│   │   │   │   │   │       ├── Modifier.glassBlur.kt
-│   │   │   │   │   │       ├── Modifier.pressScale.kt
-│   │   │   │   │   │       └── Modifier.haptic.kt
-│   │   │   │   │   ├── data/
-│   │   │   │   │   │   ├── api/            ← Retrofit API client
-│   │   │   │   │   │   │   ├── Play2PdfApi.kt
-│   │   │   │   │   │   │   └── dtos/       ← Response DTOs
-│   │   │   │   │   │   ├── db/             ← Room database
-│   │   │   │   │   │   │   ├── Play2PdfDatabase.kt
-│   │   │   │   │   │   │   ├── dao/
-│   │   │   │   │   │   │   │   ├── HistoryDao.kt
-│   │   │   │   │   │   │   │   └── SettingsDao.kt
-│   │   │   │   │   │   │   └── entities/
-│   │   │   │   │   │   ├── prefs/          ← DataStore preferences
-│   │   │   │   │   │   │   └── SettingsRepository.kt
-│   │   │   │   │   │   └── repository/
-│   │   │   │   │   │       ├── CompileRepository.kt
-│   │   │   │   │   │       ├── HistoryRepository.kt
-│   │   │   │   │   │       └── ConnectionRepository.kt
-│   │   │   │   │   ├── domain/            ← Use cases + models
-│   │   │   │   │   │   ├── model/
-│   │   │   │   │   │   │   ├── Playlist.kt
-│   │   │   │   │   │   │   ├── Topic.kt
-│   │   │   │   │   │   │   ├── PdfHistory.kt
-│   │   │   │   │   │   │   └── Theme.kt
-│   │   │   │   │   │   └── usecase/
-│   │   │   │   │   │       ├── CompileGuideUseCase.kt
-│   │   │   │   │   │       ├── TestConnectionUseCase.kt
-│   │   │   │   │   │       └── ...
-│   │   │   │   │   └── ui/
-│   │   │   │   │       ├── navigation/
-│   │   │   │   │       │   └── Play2PdfNavHost.kt
-│   │   │   │   │       ├── splash/
-│   │   │   │   │       │   ├── SplashScreen.kt
-│   │   │   │   │       │   └── SplashViewModel.kt
-│   │   │   │   │       ├── onboarding/
-│   │   │   │   │       │   └── OnboardingScreen.kt
-│   │   │   │   │       ├── compile/
-│   │   │   │   │       │   ├── CompileScreen.kt
-│   │   │   │   │       │   ├── CompileViewModel.kt
-│   │   │   │   │       │   └── components/
-│   │   │   │   │       │       ├── PlaylistInputCard.kt
-│   │   │   │   │       │       ├── TopicChipsCard.kt
-│   │   │   │   │       │       ├── FeaturedPlaylistsRow.kt
-│   │   │   │   │       │       └── ...
-│   │   │   │   │       ├── history/
-│   │   │   │   │       │   ├── HistoryScreen.kt
-│   │   │   │   │       │   ├── HistoryViewModel.kt
-│   │   │   │   │       │   └── components/
-│   │   │   │   │       │       └── HistoryListItem.kt
-│   │   │   │   │       ├── settings/
-│   │   │   │   │       │   ├── SettingsScreen.kt
-│   │   │   │   │       │   └── SettingsViewModel.kt
-│   │   │   │   │       └── compiling/
-│   │   │   │   │           ├── CompilingScreen.kt
-│   │   │   │   │           └── CompilingViewModel.kt
-│   │   │   │   └── di/
-│   │   │   │       ├── AppModule.kt       ← Network, DB, DataStore
-│   │   │   │       ├── RepositoryModule.kt
-│   │   │   │       └── UseCaseModule.kt
-│   │   │   ├── res/
-│   │   │   │   ├── drawable/               ← Vector icons, illustrations
-│   │   │   │   ├── drawable-nodpi/         ← Splash logo, empty states
-│   │   │   │   ├── mipmap-anydpi-v26/      ← Adaptive icon (XML)
-│   │   │   │   ├── mipmap-hdpi/            ← Legacy icon PNGs
-│   │   │   │   ├── values/
-│   │   │   │   │   ├── themes.xml          ← Material 3 base theme
-│   │   │   │   │   ├── colors.xml
-│   │   │   │   │   └── strings.xml
-│   │   │   │   ├── values-night/
-│   │   │   │   │   └── themes.xml          ← Dark theme overrides
-│   │   │   │   ├── font/                   ← Geist, Geist Mono, Fraunces
-│   │   │   │   ├── raw/                    ← Lottie / Rive animations
-│   │   │   │   │   ├── splash_logo.riv
-│   │   │   │   │   ├── success_confetti.json
-│   │   │   │   │   └── ...
-│   │   │   │   └── xml/
-│   │   │   │       ├── backup_rules.xml
-│   │   │   │       └── data_extraction_rules.xml
-│   │   │   └── AndroidManifest.xml
-│   │   ├── test/                            ← Unit tests
-│   │   └── androidTest/                    ← UI tests (Compose Test)
-│   ├── build.gradle.kts
-│   └── proguard-rules.pro
-├── gradle/
-│   ├── libs.versions.toml                  ← Version catalog
-│   └── wrapper/
-├── build.gradle.kts                        ← Root build script
-├── settings.gradle.kts
-├── gradle.properties
-├── docs/
-│   └── PREMIUM_DESIGN_PLAN.md              ← This file
-├── backend/                                ← Keep FastAPI backend here too
-│   ├── server.py
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── README.md
-└── README.md
-```
+**Acceptance criteria:**
+- `./gradlew assembleDebug` succeeds.
+- App installs and launches showing a blank dark screen.
+- `git log` shows clean commit history.
 
-### Tech stack decisions
-
-| Layer | Choice | Why |
-|-------|--------|-----|
-| Language | Kotlin 2.0+ | Modern, concise, null-safe, coroutine-native. |
-| UI | Jetpack Compose 1.7+ | Declarative UI, modern Android standard. |
-| DI | Hilt | First-party Android DI, simple for our scope. |
-| Async | Coroutines + Flow | Idiomatic Kotlin, replaces RxJava. |
-| Network | Retrofit + OkHttp + Moshi | Industry standard, well-documented. |
-| Local DB | Room | First-party ORM, type-safe SQL. |
-| Preferences | DataStore (Preferences) | Async, type-safe, replaces SharedPreferences. |
-| Image loading | Coil 3 | Compose-native, fast, lightweight. |
-| Animations | Compose Animation + Lottie + Rive | Native + Lottie for designer-exported animations. |
-| Navigation | Navigation Compose | First-party, type-safe. |
-| Testing | JUnit4 + Compose Test + Truth | Standard stack. |
-| Min SDK | 26 (Android 8.0) | 95%+ market share, gives us adaptive icons + adaptive fonts. |
-| Target SDK | 35 (Android 15) | Latest, predictive back, themed icons. |
+**Blocks:** All other Code Agent phases. Cannot start Phase B until this is done.
 
 ---
 
-## 5. Brand Identity — The Foundation
+### Phase B — Design System Implementation (2-3 days)
 
-### 5.1 Brand name treatment
+**Goal:** All design tokens + all reusable composables exist in code.
+App should look correct with placeholder assets.
 
-**Play2PDF** — keep as is. The "2" is the brand signature; render it
-in the brand accent color (see §5.3) every time it appears.
+**Tasks:**
+- [ ] **`Color.kt`** — brand palette (using Design Agent's locked colors
+      if delivered; using v2.0 placeholder values `#7C5CFF` etc. if not).
+- [ ] **`Type.kt`** — typography roles (using Design Agent's fonts if
+      delivered; using fallback `FontFamily.Default` if not).
+- [ ] **`Shape.kt`** — 3-step radius scale (8 / 12 / 20 / 999 dp).
+- [ ] **`Spacing.kt`** — 8-pt grid (0 / 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 dp).
+- [ ] **`Motion.kt`** — easing curves (`FastOutSlowInEasing`,
+      `LinearOutSlowInEasing`, `FastOutLinearInEasing`) + duration constants
+      (150 / 300 / 500 ms) + spec helpers.
+- [ ] **`Elevation.kt`** — layered shadow tokens (Card, CardHover, Modal).
+- [ ] **`Theme.kt`** — Compose theme entry with `darkColorScheme`, edge-to-edge
+      SideEffect, system bar tinting.
+- [ ] **`Button.kt`** — `PrimaryButton` (gradient bg, press scale 0.97,
+      haptic on tap, loading state with spinner, ghost variant). Full
+      Kotlin source in v2.0 §9.1.
+- [ ] **`Card.kt`** — `PremiumCard` (layered shadows, hover lift, press
+      depth, ripple) + `GlassCard` (real `Modifier.blur`). Full source
+      in v2.0 §9.2 + §9.3.
+- [ ] **`TextField.kt`** — `PremiumTextField` (filled style, floating
+      label, animated border, error state, supporting text).
+- [ ] **`Chip.kt`** — `AnimatedChip` (spring add, spring remove, brand
+      tint, close button). Full source in v2.0 §9.4.
+- [ ] **`Icon.kt`** — `AppIcon` composable that wraps `Icon()` + `tint`.
+      Custom `ImageVector` definitions live in `icons/` subpackage —
+      generated by Code Agent from Design Agent's SVG source (see
+      §3 Handoff Protocol for the SVG → VectorDrawable → ImageVector
+      pipeline).
+- [ ] **`NavBar.kt`** — `Play2PdfBottomBar` (custom indicator, slide
+      animation, brand tint on active). Full source in v2.0 §9.5.
+- [ ] **`Skeleton.kt`** — `ShimmerSkeleton` (infinite transition gradient).
+      Full source in v2.0 §9.6.
+- [ ] **`EmptyState.kt`** — empty-state composable that takes an icon
+      (or VectorDrawable reference), title, subtitle, and optional CTA.
+- [ ] **`Modifier.neonGlow.kt`** — extension using `drawBehind` with
+      3-layer radial gradient. Full source in v2.0 §7.2.
+- [ ] **`Modifier.pressScale.kt`** — extension using
+      `collectIsPressedAsState` + `animateFloatAsState`. Full source
+      in v2.0 §11.1.
+- [ ] **`Modifier.glassBlur.kt`** — extension wrapping `Modifier.blur`
+      with fallback for Android < 12 via `RenderEffect`.
+- [ ] **`Modifier.haptic.kt`** — extension that triggers haptic on
+      tap, taking a `HapticFeedbackType` parameter.
 
-### 5.2 Brand promise (one sentence)
+**Acceptance criteria:**
+- All composables have `@Preview` annotations showing them in isolation.
+- All tokens are used (no unused tokens, no hardcoded values in composables).
+- All animations use the curves from `Motion.kt`, never the default `tween(300)`.
+- App builds and a "design system showcase" screen renders every component.
 
-> "Turn any YouTube playlist into a print-ready, LaTeX-grade PDF
-> study guide — in one tap."
+**Blocks:** Phase D (Screens) needs all of Phase B done.
 
-### 5.3 Brand color — pick ONE and commit
+---
 
-| Role | Hex | Use |
-|------|-----|-----|
-| Brand | `#7C5CFF` | Buttons, accents, active states, logo |
-| Brand dark | `#5B3FD6` | Pressed states |
-| Brand tint | `#7C5CFF22` | Subtle backgrounds, chip backgrounds |
-| Brand glow | `#7C5CFF66` | Glow shadows |
-| Ink | `#F4F4F5` | Primary text |
-| Ink muted | `#A1A1AA` | Secondary text |
-| Ink faint | `#71717A` | Captions, disabled |
-| Surface 0 | `#09090B` | App background |
-| Surface 1 | `#18181B` | Cards |
-| Surface 2 | `#27272A` | Elevated cards, chips |
-| Surface 3 | `#3F3F46` | Pressed states |
-| Success | `#10B981` | Emerald |
-| Warning | `#F59E0B` | Amber |
-| Danger | `#EF4444` | Red |
+### Phase C — Data Layer (2 days)
 
-### 5.4 Logo spec — the single most important asset
+**Goal:** App can talk to the FastAPI backend, persist data locally,
+and inject repositories via Hilt.
 
-**Concept:** A single-color mark that reads as "playlist → document".
+**Tasks:**
+- [ ] **Domain models** — `data class Playlist`, `Topic`, `PdfHistory`,
+      `PdfTheme` (enum with 13 values), `ConnectionStatus` (enum),
+      `CompileStep` (enum), `UserSettings`.
+- [ ] **Retrofit API client** — `Play2PdfApi.kt` interface with 4 endpoints:
+      `GET /ping`, `POST /extract_topics`, `POST /playlist_meta`,
+      `POST /generate_guide`. Moshi converters for request/response DTOs.
+- [ ] **OkHttp interceptor** — logging interceptor (debug only), timeout
+      configuration (30s ping, 60s default, 300s generate).
+- [ ] **DTOs** — `GenerateGuideRequest`, `GenerateGuideResponse`,
+      `ExtractTopicsRequest`, `ExtractTopicsResponse`,
+      `PlaylistMetaRequest`, `PlaylistMetaResponse`, `PingResponse`.
+- [ ] **Room database** — `Play2PdfDatabase.kt` with `HistoryEntity`
+      and `SettingsEntity`. DAOs: `HistoryDao` (insert, getAll, delete,
+      search), `SettingsDao` (get/set key-value pairs).
+- [ ] **DataStore preferences** — `SettingsRepository.kt` wrapping
+      DataStore for API keys (yt, gemini), backend URL, user name,
+      onboarding complete flag, selected theme, sound/haptics toggles.
+- [ ] **Repositories** — `CompileRepository` (calls API, returns PDF
+      bytes, saves to cache), `HistoryRepository` (CRUD on Room +
+      DataStore cache), `ConnectionRepository` (ping, status flow).
+- [ ] **Hilt modules** — `AppModule` (provides Retrofit, OkHttp,
+      Moshi, Room, DataStore), `RepositoryModule` (binds repository
+      implementations to interfaces), `UseCaseModule` (binds use cases).
+- [ ] **Use cases** — `CompileGuideUseCase`, `TestConnectionUseCase`,
+      `ExtractTopicsUseCase`, `FetchPlaylistMetaUseCase`,
+      `SavePdfToDownloadsUseCase` (uses `MediaStore` API for Android 10+).
 
-**Construction (left to right):**
-1. **Three stacked horizontal bars** of decreasing width (40px, 28px,
-   16px at 1024px scale), each 8px tall, 12px apart — these represent
-   a video playlist.
-2. **An arrow or fold crease** — a 4px-thick diagonal line going from
-   the top of the third bar down-right to a 45° page-corner fold.
-   This is the "transformation" gesture.
-3. **A page corner** — the top-right of the mark has a folded-down
-   triangle (16×16px), revealing the page beneath.
+**Acceptance criteria:**
+- All network calls work against `https://adnanfoisal-play2pdf.hf.space`.
+- API keys persist across app restarts (DataStore).
+- History persists across app restarts (Room).
+- Hilt graph compiles with no missing bindings.
+- Unit tests for each repository (mock API, in-memory Room, fake DataStore).
 
-**Style:**
-- Single weight, single color (Brand `#7C5CFF` on light, white on dark).
-- 2px stroke everywhere, no fills.
+**Blocks:** Phase D (Screens) needs repositories for ViewModels.
+
+---
+
+### Phase D — UI Implementation (5-7 days)
+
+**Goal:** All 6 screens exist, are wired to ViewModels, navigate between
+each other, and use placeholder assets where Design Agent's work is
+pending.
+
+**Tasks:**
+- [ ] **`Play2PdfNavHost.kt`** — Navigation Compose host with 5 routes
+      (`splash`, `onboarding`, `compile`, `history`, `settings`,
+      `compiling`). Page transition animations per v2.0 §11.2.
+- [ ] **`SplashScreen.kt` + `SplashViewModel.kt`** — uses Design Agent's
+      Rive animation from `R.raw.splash_logo` IF delivered; uses a
+      `ProgressRing` placeholder otherwise. Cross-fades wordmark in.
+      Auto-navigates to onboarding or compile after 2.5s based on
+      onboarding-complete flag.
+- [ ] **`OnboardingScreen.kt`** — 3-page `HorizontalPager`. Uses Design
+      Agent's illustrations (`R.drawable.onboarding_1/2/3`) IF delivered;
+      uses `AppIcons.Sparkle` placeholder otherwise. Skip button,
+      page indicator, Get Started button on page 3.
+- [ ] **`CompileScreen.kt` + `CompileViewModel.kt`** — sticky app bar,
+      header banner, playlist input card (with neon "+" button),
+      topic chips card, featured playlists row, book details card,
+      sticky bottom Compile button. All sections per v2.0 §10.3.
+- [ ] **`HistoryScreen.kt` + `HistoryViewModel.kt`** — animated search
+      field, filter chips (All / Week / Month / Subject), list header
+      with sort icon, `LazyColumn` of `SwipeToDismissHistoryItem`s,
+      empty state. Per v2.0 §10.4.
+- [ ] **`SettingsScreen.kt` + `SettingsViewModel.kt`** — 4 section
+      headers, inline auto-save (debounced 500ms), per-field API key
+      test buttons, live backend status indicator, PDF theme grid
+      with full cover previews. Per v2.0 §10.5.
+- [ ] **`CompilingScreen.kt` + `CompilingViewModel.kt`** — branded
+      loader (Rive or `ProgressRing` placeholder), conversational
+      step checklist, cancel with confirmation, success state with
+      confetti + PDF preview + Open/Save buttons, error state with
+      error in code box + Try Again/Copy. Per v2.0 §10.6.
+- [ ] **`MainScreen.kt`** — `Scaffold` with `Play2PdfBottomBar` and
+      `NavHost` for the 3 main tabs (Compile/History/Settings).
+- [ ] **Screen-specific composables** — `PlaylistInputCard.kt`,
+      `TopicChipsCard.kt`, `FeaturedPlaylistsRow.kt`,
+      `HistoryListItem.kt`, `SwipeToDismissHistoryItem.kt`,
+      `ThemePreviewCard.kt`, `ConnectionStatusIndicator.kt`,
+      `ValidationIndicator.kt`, `SettingsSectionHeader.kt`,
+      `SearchField.kt`, `FilterChip` row, `CompileTopBar.kt`,
+      `HeaderBanner.kt`, `EmptyHistoryState.kt`, `EmptyPlaylistsHint.kt`.
+
+**Acceptance criteria:**
+- All 6 screens build and navigate.
+- All ViewModels are Hilt-injected.
+- State flows are properly collected via `collectAsStateWithLifecycle`.
+- All user interactions trigger the correct ViewModel method.
+- Empty states render with placeholders until Design Agent delivers.
+- All long text has `maxLines` + `Ellipsis`.
+
+**Blocks:** Phase E (micro-interactions) needs screens to wire into.
+
+---
+
+### Phase E — Micro-interactions & Motion (2 days)
+
+**Goal:** Every interactive element feels alive. Press depth, springs,
+page transitions, scroll-linked animations, success celebration.
+
+**Tasks:**
+- [ ] Apply `Modifier.pressScale()` to every interactive composable
+      (buttons, cards, chips, list items).
+- [ ] Wire `AnimatedVisibility` + `spring` on chip add/remove in
+      `TopicChipsCard` and `PlaylistManager`.
+- [ ] Wire Navigation Compose `slideIntoContainer`/`slideOutOfContainer`
+      on every route transition.
+- [ ] Wire `ModalBottomSheet` open animation on theme picker + filter
+      sheet.
+- [ ] Implement scroll-linked parallax on `HeaderBanner` (scale 1.0 →
+      0.92 + alpha 1.0 → 0.6 as user scrolls first 200px).
+- [ ] Implement `SuccessConfetti` composable using Design Agent's
+      `R.raw.success_confetti` Lottie IF delivered; otherwise a custom
+      `Canvas`-based particle burst (20 particles, physics fall, brand
+      color).
+- [ ] Implement empty-state delight — subtle infinite `AnimatedVisibility`
+      pulse on the sparkle in empty-state illustrations.
+- [ ] Implement long-press context menu on `HistoryListItem` (opens a
+      `ModalBottomSheet` with Open / Save / Rename / Share / Delete).
+- [ ] Implement pull-to-refresh on `HistoryScreen` (custom indicator
+      that rotates the logo mark as the user pulls).
+- [ ] Implement error shake on failed form submissions (x offset 0 →
+      -8 → 8 → -4 → 4 → 0 over 400ms).
+
+**Acceptance criteria:**
+- Every button visibly depresses on tap.
+- Every page transition slides + fades.
+- Every chip add/remove springs.
+- Every modal opens with a spring.
+- Success state plays confetti + haptic.
+- All animations use specified curves (no `tween(300)` defaults).
+
+**Blocks:** Phase F (sound/haptics wiring) layers on top of these.
+
+---
+
+### Phase F — Sound & Haptics Wiring (1 day)
+
+**Goal:** Every interaction has a haptic. Every primary action has a
+sound (if sounds are enabled in Settings).
+
+**Tasks:**
+- [ ] Implement `HapticsManager.kt` per v2.0 §12.1 — `light()`,
+      `medium()`, `heavy()`, `success()`, `error()` methods, using
+      `VibratorManager` on Android 12+ and `Vibrator` on older.
+- [ ] Implement `SoundManager.kt` per v2.0 §12.2 — `SoundPool` with
+      6 sound effects loaded from `R.raw.sfx_*` (Design Agent's WAV
+      files IF delivered; silent no-ops otherwise).
+- [ ] Add `SettingsRepository.getSoundEnabled()` /
+      `getHapticsEnabled()` flows.
+- [ ] Wire haptics into every interaction per v2.0 §12.3 table:
+      - Light tap → `light()` on every button press.
+      - Medium tap → `medium()` on primary action (Compile, Save).
+      - Success → `success()` on PDF compiled.
+      - Error → `error()` on compilation failed.
+      - Chip add → `light()` → 30ms gap → `medium()`.
+      - Chip remove → `medium()` → 30ms gap → `light()`.
+      - Page nav → `light()`.
+      - Modal open → `medium()`, close → `light()`.
+      - Pull-to-refresh trigger → `medium()`.
+- [ ] Wire sounds into the same interactions at 30% volume (gated by
+      Settings toggle).
+- [ ] Add Settings UI toggles: "Sound effects" + "Haptic feedback"
+      with live test (tapping the toggle plays the relevant feedback).
+
+**Acceptance criteria:**
+- Every button press produces a haptic.
+- Every Compile produces `success()` haptic + `sfx_success.wav`.
+- Settings toggles work and persist.
+- Haptics respect the system "Vibrate on tap" setting.
+- Sounds respect the system media volume.
+
+**Blocks:** Phase G (polish & QA).
+
+---
+
+### Phase G — Polish & QA (2 days)
+
+**Goal:** App is production-ready. 60fps, accessible, native Android
+features wired.
+
+**Tasks:**
+- [ ] **Performance:**
+  - [ ] Run Macrobenchmark on cold start + scroll. Target < 2s cold
+        start, 60fps scroll.
+  - [ ] Profile with Perfetto. Fix any jank hotspots.
+  - [ ] Add `derivedStateOf` to expensive state derivations.
+  - [ ] Add `key()` to all `LazyColumn` / `LazyRow` items.
+  - [ ] Verify `Composable` stability (no unnecessary recompositions).
+- [ ] **Accessibility:**
+  - [ ] Run TalkBack through every screen. Fix navigation order.
+  - [ ] Verify WCAG AA contrast on every text/background pair.
+  - [ ] Verify every interactive element is ≥ 48×48dp.
+  - [ ] Add `contentDescription` to every meaningful icon (null on
+        decorative ones).
+  - [ ] Add `Modifier.semantics` where appropriate.
+  - [ ] Respect `Settings.Global.ANIMATOR_DURATION_SCALE` for reduced
+        motion.
+- [ ] **Native Android:**
+  - [ ] Edge-to-edge layout (`WindowCompat.setDecorFitsSystemWindows
+        (window, false)`).
+  - [ ] System bars tinted to match app background.
+  - [ ] Predictive back gesture (Android 14+) — `BackHandler` +
+        predictive animation.
+  - [ ] Themed icons (Android 13+) — `ic_launcher_monochrome.xml`
+        delivered by Design Agent.
+  - [ ] Per-app language preferences (Android 13+).
+  - [ ] SplashScreen API (Android 12+) — themes.xml + `MainActivity`.
+  - [ ] Deep link support — `<intent-filter>` for `play2pdf://`
+        scheme.
+  - [ ] Notification channel for "PDF ready" notifications.
+- [ ] **Real device testing:**
+  - [ ] Test on small phone (e.g. Pixel 4a / 5.8").
+  - [ ] Test on large phone (e.g. Pixel 7 Pro / 6.7").
+  - [ ] Test on tablet (e.g. Pixel Tablet / 10.95").
+  - [ ] Test on slow network (Android emulator 3G throttle).
+  - [ ] Test on low-battery mode.
+  - [ ] Test with dark mode + light mode (light mode supported if
+        Design Agent delivered a light palette).
+- [ ] **Build variants:**
+  - [ ] `debug` build with verbose logging.
+  - [ ] `release` build with ProGuard / R8 minification.
+  - [ ] Sign release build with upload key.
+- [ ] **App Store prep:**
+  - [ ] Generate signed APK + AAB.
+  - [ ] Write Play Store listing (title, short desc, long desc,
+        screenshots — screenshots use Design Agent's final mockups).
+
+**Acceptance criteria:**
+- App passes Macrobenchmark with no red flags.
+- App passes TalkBack end-to-end.
+- App runs on all 3 device sizes without layout breakage.
+- Release AAB builds and installs on a real device.
+- All §5 Quality Checklist items pass.
+
+**Blocks:** Nothing. This is the final phase before release.
+
+---
+
+### Phase H — Backend Maintenance (ongoing)
+
+**Goal:** Keep the FastAPI backend healthy. Add features as needed.
+
+**Tasks:**
+- [ ] Copy `backend/` from old repo into `Play2Pdf-Compose/backend/`.
+- [ ] Verify backend still uses `gemini-3.6-flash` (latest GA, confirmed
+      via web search July 21, 2026).
+- [ ] Add `/health` endpoint for uptime monitoring.
+- [ ] Add request rate limiting (slowapi or similar) to prevent abuse.
+- [ ] Add structured logging (JSON to stdout) for HF Space logs.
+- [ ] Configure CORS to allow the Android app's package origin.
+- [ ] Add `/api/v1/` prefix to all endpoints for future versioning.
+- [ ] Update Dockerfile to use Python 3.12 + multi-stage build for
+      smaller image.
+- [ ] Add GitHub Action to redeploy on push to `main`.
+- [ ] Document backend setup in `backend/README.md`.
+
+**Acceptance criteria:**
+- Backend stays live at `https://adnanfoisal-play2pdf.hf.space`.
+- `/ping` returns 200 in < 1s when awake.
+- Cold-start time < 60s (HF Space free tier).
+- No unhandled exceptions in production logs.
+
+**Blocks:** Nothing. Ongoing.
+
+---
+
+## 2. Part 2 — Design Agent Scope (What the Other Agent Produces)
+
+Everything that lives in `res/drawable/`, `res/raw/`, `res/font/`, or
+`design/` is the Design Agent's. The Code Agent will not produce any
+of these files. The Code Agent will write code that imports them by
+resource ID.
+
+### Asset A — Brand Foundation
+
+**Deliverable:** `design/BRAND_SPEC.md` — a 1-page brand spec doc.
+
+**Contents:**
+- Brand color hex (recommendation: `#7C5CFF` — but Design Agent's
+  choice is final).
+- Brand color dark variant (for pressed states).
+- Type pairing (recommendation: Geist + Geist Mono + Fraunces — but
+  Design Agent's choice is final).
+- Type role table (10 roles: Display, Title 1-3, Body, Body small,
+  Caption, Micro/Label, Code, Stat number — with size/weight/line-
+  height/letter-spacing per role).
+- Logo concept statement (1 sentence describing what the logo
+  communicates).
+- Illustration style (geometric line art? soft gradients? flat? —
+  pick one and commit).
+
+**Acceptance criteria:**
+- 1 Markdown file, ≤ 2 pages.
+- Every value is concrete (no "TBD", no "maybe").
+- Code Agent can implement `Color.kt` and `Type.kt` directly from this
+  doc without further questions.
+
+**Blocks:** Phase B (Code Agent's design system implementation).
+
+---
+
+### Asset B — Logo & Wordmark
+
+**Deliverable:** Logo mark + wordmark as SVG + PNG exports.
+
+**Logo mark spec:**
+- Concept: "playlist → document" — three stacked horizontal bars of
+  decreasing width + diagonal fold crease + page corner fold.
+- Style: single weight, single color, 2px stroke, no fills.
 - Sharp corners on the bars (video thumbnails).
 - Rounded corners on the page (PDF output).
 - Geometric, not illustrative.
 
-**Tests the logo must pass:**
-- ✅ Readable at 16×16 (favicon size).
-- ✅ Readable at 32×32 (status bar icon).
-- ✅ Readable at 48×48 (in-app icon).
-- ✅ Readable in single-color white (on dark backgrounds).
-- ✅ Readable in single-color black (on light backgrounds).
-- ✅ Readable in silhouette (no color, just alpha).
-- ✅ Recognizable when blurred to 4px (the "glance test").
+**Readability tests (must pass all 7):**
+- ✅ Readable at 16×16.
+- ✅ Readable at 32×32.
+- ✅ Readable at 48×48.
+- ✅ Single-color white on dark.
+- ✅ Single-color black on light.
+- ✅ Silhouette (alpha only).
+- ✅ Recognizable when blurred to 4px.
 
-**Deliverables:**
-- `logo_mark.svg` — single-color vector, 1024×1024 viewBox.
-- `logo_mark_full.svg` — mark + wordmark "Play2PDF" side-by-side.
-- `logo_mark_stacked.svg` — mark above wordmark, for splash and onboarding.
-- PNG exports at 16, 32, 48, 96, 192, 512, 1024 (each in white, black,
-  and brand color = 21 PNG files).
+**Files:**
+- `design/logo/logo_mark.svg` — 1024×1024 viewBox, single-color brand.
+- `design/logo/logo_wordmark.svg` — mark + "Play2PDF" wordmark side-by-side,
+  with the "2" in brand color.
+- `design/logo/logo_mark_stacked.svg` — mark above wordmark.
+- `design/logo/exports/logo_mark_white_16.png` through `logo_mark_white_1024.png` (7 sizes × 3 colors = 21 PNGs).
 
-### 5.5 Typography — pick a real pairing
+**Acceptance criteria:**
+- All 7 readability tests pass.
+- SVGs open cleanly in Android Studio's Vector Asset importer.
+- PNG exports are real PNGs (verify with `file` — must say "PNG image
+  data, ... RGBA", NOT "JPEG image data").
 
-**Recommended pairing (free):**
-- **Display + Body:** **Geist** (by Vercel) — modern geometric sans.
-- **Code/Numbers:** **Geist Mono**.
-- **Optional accent:** **Fraunces** (variable serif) for editorial
-  moments (PDF cover preview, About page).
-
-**Type roles:**
-
-| Role | Font | Size | Weight | Line height | Letter spacing | Color |
-|------|------|------|--------|-------------|----------------|-------|
-| Display | Geist | 40 | 700 | 1.1 | -0.02em | Ink |
-| Title 1 | Geist | 28 | 600 | 1.2 | -0.01em | Ink |
-| Title 2 | Geist | 22 | 600 | 1.3 | -0.01em | Ink |
-| Title 3 | Geist | 18 | 600 | 1.3 | 0 | Ink |
-| Body | Geist | 15 | 400 | 1.5 | 0 | Ink muted |
-| Body small | Geist | 13 | 400 | 1.45 | 0 | Ink muted |
-| Caption | Geist | 12 | 500 | 1.4 | 0.02em | Ink faint |
-| Micro / label | Geist | 11 | 600 | 1.4 | 0.08em uppercase | Brand |
-| Code / number | Geist Mono | 14 | 500 | 1.5 | 0 | Ink |
-| Stat number | Geist | 48 | 700 | 1 | -0.02em | Ink |
-
-**Uppercase + 8% letter-spacing on micro labels** is the single
-fastest way to make UI feel premium (Linear, Stripe, Vercel all do
-this).
-
-### 5.6 Spacing — adopt the 8-pt grid
-
-| Token | Value | Use |
-|-------|-------|-----|
-| `space.0` | 0 | — |
-| `space.1` | 4 | Tight inline (icon + text gap) |
-| `space.2` | 8 | Default inline |
-| `space.3` | 12 | Card padding (small) |
-| `space.4` | 16 | Card padding (default) |
-| `space.5` | 24 | Card-to-card vertical |
-| `space.6` | 32 | Section-to-section |
-| `space.7` | 48 | Major section break |
-| `space.8` | 64 | Tablet screen-edge padding |
-
-### 5.7 Radius — 3-step scale
-
-| Token | Value | Use |
-|-------|-------|-----|
-| `radius.sm` | 8 | Chips, badges, inputs |
-| `radius.md` | 12 | Cards, list items |
-| `radius.lg` | 20 | Sheets, modals |
-| `radius.pill` | 999 | Pills, primary buttons |
+**Blocks:** Phase B (welcome screen + splash reference Design Agent's
+logo). Asset C (adaptive icon) is derived from this.
 
 ---
 
-## 6. Asset Inventory — What To Produce
+### Asset C — Android Adaptive Icon
 
-### 6.1 Android adaptive icon
+**Deliverable:** 3 VectorDrawable XML files for the Android adaptive
+icon system.
 
-Three layers, each 1024×1024 PNG with alpha. Outer 18% per side is
-masked off (safe zone = inner 66%).
+**Specs:**
+- `app/src/main/res/drawable/ic_launcher_foreground.xml` — VectorDrawable,
+  logo mark in brand color, 108×108dp viewport (inner 72dp safe zone,
+  outer 18dp per side masked by launcher).
+- `app/src/main/res/drawable/ic_launcher_background.xml` — VectorDrawable,
+  solid `#09090B` OR radial gradient from `#18181B` to `#09090B`.
+- `app/src/main/res/drawable/ic_launcher_monochrome.xml` — VectorDrawable,
+  single-color white silhouette of the logo (for Android 13+ themed
+  icons that respect the user's wallpaper tint).
 
-| File | Spec |
-|------|------|
-| `app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml` | `<adaptive-icon>` XML referencing foreground + background |
-| `app/src/main/res/drawable/ic_launcher_foreground.xml` | VectorDrawable, logo mark in brand color, 108×108dp viewport (inner 72dp safe zone) |
-| `app/src/main/res/drawable/ic_launcher_background.xml` | VectorDrawable, solid `#09090B` or radial gradient |
-| `app/src/main/res/drawable/ic_launcher_monochrome.xml` | VectorDrawable, single-color white silhouette (for Android 13+ themed icons) |
+**Acceptance criteria:**
+- All 3 files open in Android Studio's Vector Asset previewer without
+  errors.
+- Foreground's content is centered in the inner 72dp safe zone (test
+  by setting the launcher mask to circle, squircle, rounded square,
+  full square — the logo should be visible in all).
+- Monochrome is pure white with alpha (no colors) — Android applies
+  the user's wallpaper tint at runtime.
 
-**Use VectorDrawable XML (not PNG)** for adaptive icons — it scales
-perfectly at every density and supports Android 13's themed icon
-system.
-
-### 6.2 Splash icon (native Android splash)
-
-| File | Spec |
-|------|------|
-| `app/src/main/res/drawable/splash_icon.xml` | VectorDrawable, logo mark in brand color, sized 120×120dp. Used by Android 12+ `SplashScreen` API before Compose boots. |
-
-### 6.3 In-app logo
-
-| File | Spec |
-|------|------|
-| `app/src/main/res/drawable/logo_mark.xml` | VectorDrawable, the logo mark. |
-| `app/src/main/res/drawable/logo_wordmark.xml` | VectorDrawable, the "Play2PDF" wordmark with brand-colored "2". |
-
-### 6.4 Custom icon set (Kotlin ImageVector)
-
-Custom `ImageVector` definitions in Kotlin for ~24 icons. Each is a
-composable function returning an `ImageVector`, defined with the
-`materialIcon` builder DSL.
-
-| Icon | File | Concept |
-|------|------|---------|
-| `AppIcons.Playlist` | `IconPlaylist.kt` | 3 stacked bars, decreasing width |
-| `AppIcons.Topic` | `IconTopic.kt` | Bookmark with center dot |
-| `AppIcons.Book` | `IconBook.kt` | Open book, 2 lines per page |
-| `AppIcons.Compile` | `IconCompile.kt` | Document + corner sparkle |
-| `AppIcons.History` | `IconHistory.kt` | Clock at 10:10 |
-| `AppIcons.Settings` | `IconSettings.kt` | 6-tooth gear |
-| `AppIcons.Search` | `IconSearch.kt` | Magnifier, 2px stroke |
-| `AppIcons.Filter` | `IconFilter.kt` | 3 lines, decreasing width |
-| `AppIcons.Bell` | `IconBell.kt` | Bell + indicator dot |
-| `AppIcons.Pdf` | `IconPdf.kt` | Document + corner fold |
-| `AppIcons.More` | `IconMore.kt` | 3 vertical dots |
-| `AppIcons.Delete` | `IconDelete.kt` | Trash can |
-| `AppIcons.Download` | `IconDownload.kt` | Down arrow + tray |
-| `AppIcons.OpenExternal` | `IconOpenExternal.kt` | Box + up-right arrow |
-| `AppIcons.Key` | `IconKey.kt` | Key |
-| `AppIcons.Wifi` | `IconWifi.kt` | Wifi arcs |
-| `AppIcons.Cloud` | `IconCloud.kt` | Cloud |
-| `AppIcons.User` | `IconUser.kt` | Person silhouette |
-| `AppIcons.Close` | `IconClose.kt` | X, rounded caps |
-| `AppIcons.Check` | `IconCheck.kt` | Checkmark |
-| `AppIcons.Error` | `IconError.kt` | X in circle |
-| `AppIcons.Plus` | `IconPlus.kt` | + rounded caps |
-| `AppIcons.Play` | `IconPlay.kt` | Triangle play |
-| `AppIcons.Sparkle` | `IconSparkle.kt` | 4-point star |
-
-**Style spec:** 24×24 viewBox, 2px stroke, rounded caps, single color
-via `tint = LocalContentColor.current`.
-
-**Why Kotlin ImageVector (not SVG):** ImageVector composes faster
-than SVG-as-Image, supports `tint`, integrates with Compose's `Icon()`
-composable, and is fully type-safe at compile time.
-
-### 6.5 Empty-state illustrations
-
-Three custom vector illustrations. Style: geometric line art with one
-accent color, 4px stroke, transparent or Surface 1 background.
-
-| File | Size (dp) | Used when |
-|------|-----------|-----------|
-| `app/src/main/res/drawable/empty_history.xml` | 240×180 | History tab empty |
-| `app/src/main/res/drawable/empty_playlists.xml` | 240×180 | Compile tab, playlists empty |
-| `app/src/main/res/drawable/empty_topics.xml` | 240×180 | Compile tab, topics empty |
-
-### 6.6 Splash motion asset
-
-| File | Spec |
-|------|------|
-| `app/src/main/res/raw/splash_logo.riv` | Rive animation, 2 seconds, 60fps. Logo mark draws itself in (stroke-dashoffset), then a single pulse of brand glow radiates outward, then settles. |
-
-If Rive is too complex, fall back to:
-| File | Spec |
-|------|------|
-| `app/src/main/res/raw/splash_logo.json` | Lottie JSON exported from After Effects. |
-
-### 6.7 Sound effects (optional but huge)
-
-| File | Used when |
-|------|-----------|
-| `app/src/main/res/raw/sfx_tap.wav` | Button tap |
-| `app/src/main/res/raw/sfx_chip_add.wav` | Chip added |
-| `app/src/main/res/raw/sfx_chip_remove.wav` | Chip removed |
-| `app/src/main/res/raw/sfx_success.wav` | PDF compiled |
-| `app/src/main/res/raw/sfx_error.wav` | Compilation failed |
-| `app/src/main/res/raw/sfx_nav.wav` | Tab change |
-
-**Format:** ≤ 50ms, ≤ 5KB, mono, 44.1kHz 16-bit WAV.
-
-### 6.8 PDF cover-page preview thumbnails
-
-For each of the 13 PDF themes, render a 220×280 PNG showing what the
-cover page actually looks like.
-
-```
-app/src/main/res/drawable-nodpi/
-├── pdf_theme_tufte_scholar.png
-├── pdf_theme_princeton_math.png
-├── pdf_theme_midnight_terminal.png
-├── pdf_theme_cambridge_emerald.png
-├── pdf_theme_bauhaus_geometric.png
-├── pdf_theme_swiss_stark.png
-├── pdf_theme_oxford_burgundy.png
-├── pdf_theme_deep_space.png
-├── pdf_theme_mit_tech.png
-├── pdf_theme_wharton_ledger.png
-├── pdf_theme_sumi_ink.png
-├── pdf_theme_renaissance_gold.png
-└── pdf_theme_warm_sunset_dark.png
-```
-
-Generate by running each theme through the existing PDF backend once,
-then `pdftoppm` or `pypdfium2` to render the cover page to PNG.
+**Blocks:** Phase A (AndroidManifest references the adaptive icon). Code
+Agent will write `mipmap-anydpi-v26/ic_launcher.xml` referencing these
+3 drawables.
 
 ---
 
-## 7. Visual System — Color, Type, Space, Motion
+### Asset D — Splash Icon (Native Android Splash)
 
-### 7.1 Real backdrop blur (glassmorphism)
+**Deliverable:** 1 VectorDrawable XML.
 
-Compose has real `Modifier.blur()` (RenderEffect-backed on Android
-12+). For glassmorphism cards:
+**Spec:**
+- `app/src/main/res/drawable/splash_icon.xml` — VectorDrawable, logo
+  mark in brand color, 120×120dp. Used by Android 12+ SplashScreen
+  API before Compose boots.
 
-```kotlin
-@Composable
-fun GlassCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.Black.copy(alpha = 0.6f))
-            .blur(radius = 20.dp)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(20.dp),
-            ),
-    ) {
-        content()
-    }
-}
-```
+**Acceptance criteria:**
+- Opens cleanly in Android Studio.
+- Looks identical to `ic_launcher_foreground.xml` (same logo, just
+  different viewport/size for splash use).
 
-For Android < 12, fall back to `RenderEffect.createBlurEffect` via
-`Modifier.graphicsLayer { renderEffect = ... }`.
-
-### 7.2 Real neon glow (multi-layer)
-
-Real neon needs 3 stacked shadows. Here's the `Modifier` extension:
-
-```kotlin
-fun Modifier.neonGlow(
-    color: Color = BrandColor,
-    intensity: Float = 1f,
-): Modifier = this.drawBehind {
-    // Inner core — saturated, small radius
-    drawCircle(
-        color = color.copy(alpha = 0.8f * intensity),
-        radius = size.minDimension * 0.4f * intensity,
-        center = Offset(size.width / 2, size.height / 2),
-    )
-    // Mid halo
-    drawCircle(
-        color = color.copy(alpha = 0.4f * intensity),
-        radius = size.minDimension * 0.6f * intensity,
-        center = Offset(size.width / 2, size.height / 2),
-    )
-    // Outer falloff
-    drawCircle(
-        color = color.copy(alpha = 0.1f * intensity),
-        radius = size.minDimension * 0.9f * intensity,
-        center = Offset(size.width / 2, size.height / 2),
-    )
-}
-```
-
-Use on the splash logo, primary CTA, active nav indicator, success
-checkmark. NOWHERE else.
-
-### 7.3 Micro-typography in Compose
-
-```kotlin
-@Composable
-fun MicroLabel(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text.uppercase(),
-        fontSize = 11.sp,
-        fontWeight = FontWeight.SemiBold,
-        letterSpacing = 0.88.sp,  // 8% of 11sp
-        color = MaterialTheme.colorScheme.primary,
-        modifier = modifier,
-    )
-}
-
-@Composable
-fun StatNumber(value: Int, modifier: Modifier = Modifier) {
-    Text(
-        text = value.toString(),
-        fontSize = 48.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.96).sp,  // -2% of 48sp
-        modifier = modifier,
-    )
-}
-```
-
-### 7.4 Motion principles — Compose animation APIs
-
-| Interaction | Compose API | Curve | Duration |
-|-------------|-------------|-------|----------|
-| Button press scale | `animateFloatAsState` | `FastOutSlowInEasing` | 100ms |
-| Button release | `animateFloatAsState` | `FastOutSlowInEasing` | 150ms |
-| Card hover (desktop) | `animateFloatAsState` | `FastOutSlowInEasing` | 200ms |
-| Chip add spring | `AnimatedVisibility` + `spring` | `Spring.DampingRatioMediumBouncy` | 250ms |
-| Chip remove | `AnimatedVisibility` + `spring` | `Spring.DampingRatioNoBouncy` | 200ms |
-| Page transition (forward) | `AnimatedContent` + `slideIntoContainer` | `FastOutSlowInEasing` | 300ms |
-| Page transition (back) | `AnimatedContent` + `slideOutOfContainer` | `FastOutSlowInEasing` | 250ms |
-| Modal open | `AnimatedVisibility` + `spring` | `Spring.DampingRatioMediumBouncy` | 350ms |
-| Modal close | `AnimatedVisibility` | `FastOutSlowInEasing` | 200ms |
-| Bottom sheet open | `ModalBottomSheet` | `SwipeableV2Defaults.AnimationSpec` | 400ms |
-| Splash logo draw-in | `Lottie/Rive` | linear | 1200ms |
-| Splash logo pulse | `rememberInfiniteTransition` | `FastOutSlowInEasing` | 800ms |
-| Loading skeleton shimmer | `rememberInfiniteTransition` | linear | 1500ms |
-| Success checkmark draw | `Lottie/Rive` | `FastOutSlowInEasing` | 600ms |
-| Error shake | `Animatable` + keyframes | `FastOutSlowInEasing` | 400ms |
-
-**Critical rule:** NEVER use the default `tween(300)`. Always specify
-`FastOutSlowInEasing` (or `LinearOutSlowInEasing` for entrances,
-`FastOutLinearInEasing` for exits).
+**Blocks:** Phase A (SplashScreen API setup).
 
 ---
 
-## 8. Design System in Compose
+### Asset E — In-App Logo
 
-### 8.1 `Color.kt`
+**Deliverable:** 2 VectorDrawable XMLs.
 
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.theme
+**Specs:**
+- `app/src/main/res/drawable/logo_mark.xml` — same as
+  `ic_launcher_foreground.xml` but sized for in-app use (96×96dp).
+- `app/src/main/res/drawable/logo_wordmark.xml` — mark + "Play2PDF"
+  text, with the "2" in brand color. Sized for use in splash and
+  welcome screens.
 
-import androidx.compose.ui.graphics.Color
+**Acceptance criteria:**
+- Both render correctly at 96dp, 120dp, 160dp.
+- The wordmark's "2" is the exact brand color from Asset A.
 
-// Brand
-val BrandColor = Color(0xFF7C5CFF)
-val BrandDarkColor = Color(0xFF5B3FD6)
-val BrandTint = Color(0x227C5CFF)
-val BrandGlow = Color(0x667C5CFF)
-
-// Ink (text)
-val Ink = Color(0xFFF4F4F5)
-val InkMuted = Color(0xFFA1A1AA)
-val InkFaint = Color(0xFF71717A)
-
-// Surface scale
-val Surface0 = Color(0xFF09090B)
-val Surface1 = Color(0xFF18181B)
-val Surface2 = Color(0xFF27272A)
-val Surface3 = Color(0xFF3F3F46)
-
-// Semantic
-val SuccessColor = Color(0xFF10B981)
-val WarningColor = Color(0xFFF59E0B)
-val DangerColor = Color(0xFFEF4444)
-```
-
-### 8.2 `Theme.kt`
-
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.theme
-
-import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
-
-private val Play2PdfColorScheme = darkColorScheme(
-    primary = BrandColor,
-    onPrimary = Ink,
-    primaryContainer = BrandDarkColor,
-    onPrimaryContainer = Ink,
-    secondary = BrandColor,
-    onSecondary = Ink,
-    secondaryContainer = Surface2,
-    onSecondaryContainer = Ink,
-    tertiary = BrandColor,
-    onTertiary = Ink,
-    background = Surface0,
-    onBackground = Ink,
-    surface = Surface1,
-    onSurface = Ink,
-    surfaceVariant = Surface2,
-    onSurfaceVariant = InkMuted,
-    surfaceTint = BrandColor,
-    outline = InkFaint,
-    outlineVariant = Surface3,
-    error = DangerColor,
-    onError = Ink,
-    errorContainer = DangerColor,
-    onErrorContainer = Ink,
-)
-
-@Composable
-fun Play2PdfTheme(
-    content: @Composable () -> Unit,
-) {
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-            window.statusBarColor = Surface0.toArgb()
-            window.navigationBarColor = Surface0.toArgb()
-        }
-    }
-
-    MaterialTheme(
-        colorScheme = Play2PdfColorScheme,
-        typography = Play2PdfTypography,
-        shapes = Play2PdfShapes,
-        content = content,
-    )
-}
-```
-
-### 8.3 `Type.kt`
-
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.theme
-
-import androidx.compose.material3.Typography
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import com.adnanfoisal.play2pdf.R
-
-val GeistFontFamily = FontFamily(
-    Font(R.font.geist_regular, FontWeight.Normal),
-    Font(R.font.geist_medium, FontWeight.Medium),
-    Font(R.font.geist_semibold, FontWeight.SemiBold),
-    Font(R.font.geist_bold, FontWeight.Bold),
-)
-
-val GeistMonoFontFamily = FontFamily(
-    Font(R.font.geist_mono_regular, FontWeight.Normal),
-    Font(R.font.geist_mono_medium, FontWeight.Medium),
-    Font(R.font.geist_mono_bold, FontWeight.Bold),
-)
-
-val FrauncesFontFamily = FontFamily(
-    Font(R.font.fraunces_regular, FontWeight.Normal),
-    Font(R.font.fraunces_semibold, FontWeight.SemiBold),
-)
-
-val Play2PdfTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 40.sp,
-        lineHeight = 44.sp,
-        letterSpacing = (-0.8).sp,
-    ),
-    displayMedium = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        lineHeight = 36.sp,
-        letterSpacing = (-0.5).sp,
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        letterSpacing = (-0.3).sp,
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        letterSpacing = (-0.2).sp,
-    ),
-    titleLarge = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
-    ),
-    titleMedium = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 19.sp,
-    ),
-    labelLarge = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.88.sp,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.24.sp,
-    ),
-    labelSmall = TextStyle(
-        fontFamily = GeistFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
-        letterSpacing = 0.22.sp,
-    ),
-)
-```
-
-### 8.4 `Spacing.kt` (8-pt grid)
-
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.tokens
-
-import androidx.compose.ui.unit.dp
-
-object Spacing {
-    val space0 = 0.dp
-    val space1 = 4.dp
-    val space2 = 8.dp
-    val space3 = 12.dp
-    val space4 = 16.dp
-    val space5 = 24.dp
-    val space6 = 32.dp
-    val space7 = 48.dp
-    val space8 = 64.dp
-}
-```
-
-### 8.5 `Shape.kt` (3-step scale)
-
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.theme
-
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Shapes
-import androidx.compose.ui.unit.dp
-
-val Play2PdfShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(20.dp),
-    extraLarge = RoundedCornerShape(28.dp),
-)
-
-object Radius {
-    val sm = 8.dp
-    val md = 12.dp
-    val lg = 20.dp
-    val pill = 999.dp
-}
-```
-
-### 8.6 `Motion.kt` (curves + durations)
-
-```kotlin
-package com.adnanfoisal.play2pdf.core.designsystem.tokens
-
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.DurationBasedAnimationSpec
-import androidx.compose.animation.core.tween
-
-object Motion {
-    // Easings
-    val EaseOut = CubicBezierEasing(0.0f, 0.0f, 0.2f, 1f)
-    val EaseIn = CubicBezierEasing(0.4f, 0f, 1f, 1f)
-    val EaseInOut = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
-    val LinearOutSlowIn = CubicBezierEasing(0f, 0f, 0.2f, 1f)
-    val FastOutLinearIn = CubicBezierEasing(0.4f, 0f, 1f, 1f)
-
-    // Durations
-    const val DurationFast = 150
-    const val DurationMedium = 300
-    const val DurationSlow = 500
-
-    fun <T> fastOutSlowIn(durationMs: Int = DurationMedium): DurationBasedAnimationSpec<T> =
-        tween(durationMillis = durationMs, easing = EaseInOut)
-
-    fun <T> linearOutSlowIn(durationMs: Int = DurationMedium): DurationBasedAnimationSpec<T> =
-        tween(durationMillis = durationMs, easing = LinearOutSlowIn)
-
-    fun <T> fastOutLinearIn(durationMs: Int = DurationMedium): DurationBasedAnimationSpec<T> =
-        tween(durationMillis = durationMs, easing = FastOutLinearIn)
-}
-```
+**Blocks:** Phase B (used in splash + onboarding).
 
 ---
 
-## 9. Component-Level Premium Polish
+### Asset F — Custom Icon Set (24 Icons)
 
-### 9.1 `PrimaryButton` (replaces `AppButton`)
+**Deliverable:** 24 SVG files in `design/icons/`.
 
-```kotlin
-@Composable
-fun PrimaryButton(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    loading: Boolean = false,
-    icon: ImageVector? = null,
-    variant: ButtonVariant = ButtonVariant.Primary,
-) {
-    val haptics = LocalHapticFeedback.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1f,
-        animationSpec = Motion.fastOutSlowIn(100),
-        label = "pressScale",
-    )
+**List:**
+1. `playlist.svg` — 3 stacked bars, decreasing width.
+2. `topic.svg` — bookmark with center dot.
+3. `book.svg` — open book, 2 lines per page.
+4. `compile.svg` — document + corner sparkle.
+5. `history.svg` — clock at 10:10.
+6. `settings.svg` — 6-tooth gear.
+7. `search.svg` — magnifier, 2px stroke.
+8. `filter.svg` — 3 lines, decreasing width.
+9. `bell.svg` — bell + indicator dot.
+10. `pdf.svg` — document + corner fold.
+11. `more.svg` — 3 vertical dots.
+12. `delete.svg` — trash can.
+13. `download.svg` — down arrow + tray.
+14. `open_external.svg` — box + up-right arrow.
+15. `key.svg` — key.
+16. `wifi.svg` — wifi arcs.
+17. `cloud.svg` — cloud.
+18. `user.svg` — person silhouette.
+19. `close.svg` — X, rounded caps.
+20. `check.svg` — checkmark.
+21. `error.svg` — X in circle.
+22. `plus.svg` — + rounded caps.
+23. `play.svg` — triangle play.
+24. `sparkle.svg` — 4-point star.
 
-    val (bgColor, fgColor) = when (variant) {
-        ButtonVariant.Primary -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        ButtonVariant.Secondary -> MaterialTheme.colorScheme.secondary to MaterialTheme.colorScheme.onSecondary
-        ButtonVariant.Success -> SuccessColor to Ink
-        ButtonVariant.Ghost -> Color.Transparent to Ink
-    }
+**Specs:**
+- All 24×24 viewBox.
+- All 2px stroke, rounded caps, no fills.
+- All single color (currentColor, so they tint at runtime).
+- Consistent visual weight across the set (test: arrange all 24 in a
+  grid — they should look like a family, not 24 unrelated icons).
 
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(Radius.pill))
-            .background(
-                if (variant == ButtonVariant.Primary) {
-                    Brush.linearGradient(
-                        colors = listOf(BrandColor, BrandDarkColor),
-                    )
-                } else {
-                    Brush.linearGradient(listOf(bgColor, bgColor))
-                }
-            )
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(Radius.pill),
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled && !loading,
-                onClick = {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                },
-            )
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(18.dp),
-                strokeWidth = 2.dp,
-                color = fgColor,
-            )
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = fgColor,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                Text(
-                    text = text,
-                    color = fgColor,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.15).sp,
-                )
-            }
-        }
-    }
-}
-```
+**Acceptance criteria:**
+- All 24 SVGs open cleanly in Android Studio's Vector Asset importer
+  (which converts them to VectorDrawable XML).
+- Visual weight is consistent.
+- Stroke width is consistent (2px everywhere).
+- All icons pass the "blurred to 4px" readability test.
 
-### 9.2 `PremiumCard` (replaces `AppCard`)
-
-```kotlin
-@Composable
-fun PremiumCard(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit,
-) {
-    val interactionSource = remember(onClick) { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.99f
-            isHovered -> 1.005f
-            else -> 1f
-        },
-        animationSpec = Motion.fastOutSlowIn(200),
-        label = "cardScale",
-    )
-
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(Radius.md))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(Radius.md),
-            )
-            .shadow(
-                elevation = if (isHovered) 6.dp else 4.dp,
-                shape = RoundedCornerShape(Radius.md),
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.3f),
-                spotColor = Color.Black.copy(alpha = 0.4f),
-            )
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interactionSource,
-                        indication = ripple(),
-                        onClick = onClick,
-                    )
-                } else Modifier
-            )
-            .padding(Spacing.space4),
-    ) {
-        content()
-    }
-}
-```
-
-### 9.3 `GlassCard`
-
-```kotlin
-@Composable
-fun GlassCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(Radius.lg))
-            .background(Color.Black.copy(alpha = 0.5f))
-            .blur(20.dp)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(Radius.lg),
-            )
-            .padding(Spacing.space4),
-    ) {
-        content()
-    }
-}
-```
-
-### 9.4 `AnimatedChip`
-
-```kotlin
-@Composable
-fun AnimatedChip(
-    text: String,
-    onRemove: () -> Unit,
-    modifier: Modifier = Modifier,
-    color: Color = BrandTint,
-) {
-    val haptics = LocalHapticFeedback.current
-
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-
-    AnimatedVisibility(
-        visible = visible,
-        enter = scaleIn(
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow,
-            ),
-            initialScale = 0f,
-        ) + fadeIn(),
-        exit = scaleOut(
-            animationSpec = tween(200, easing = Motion.EaseIn),
-            targetScale = 0f,
-        ) + fadeOut(),
-        modifier = modifier,
-    ) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(Radius.pill))
-                .background(color)
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(Radius.pill),
-                )
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = text,
-                    color = Ink,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                IconButton(
-                    onClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        visible = false
-                        onRemove()
-                    },
-                    modifier = Modifier.size(20.dp),
-                ) {
-                    Icon(
-                        imageVector = AppIcons.Close,
-                        contentDescription = "Remove $text",
-                        tint = InkMuted,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-```
-
-### 9.5 Custom `BottomNavBar`
-
-```kotlin
-@Composable
-fun Play2PdfBottomBar(
-    destinations: List<Play2PdfDestination>,
-    currentRoute: String?,
-    onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = LocalHapticFeedback.current
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(Surface1)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.08f),
-            )
-            .navigationBarsPadding(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(70.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            destinations.forEach { destination ->
-                val isSelected = currentRoute == destination.route
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1f else 0.92f,
-                    animationSpec = Motion.fastOutSlowIn(150),
-                    label = "navIconScale",
-                )
-                val iconColor by animateColorAsState(
-                    targetValue = if (isSelected) BrandColor else InkFaint,
-                    animationSpec = Motion.fastOutSlowIn(200),
-                    label = "navIconColor",
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable(
-                            indication = null,
-                            interactionSource = remember { MutableInteractionSource() },
-                        ) {
-                            if (!isSelected) {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onNavigate(destination.route)
-                            }
-                        }
-                        .padding(vertical = 8.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .scale(scale)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) BrandTint else Color.Transparent)
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = if (isSelected) destination.selectedIcon else destination.icon,
-                            contentDescription = destination.label,
-                            tint = iconColor,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = destination.label,
-                        color = iconColor,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-        }
-    }
-}
-```
-
-### 9.6 `ShimmerSkeleton`
-
-```kotlin
-@Composable
-fun ShimmerSkeleton(
-    modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(8.dp),
-) {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val translateAnim by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "shimmerTranslate",
-    )
-
-    val brush = Brush.linearGradient(
-        colors = listOf(Surface2, Surface3, Surface2),
-        start = Offset(translateAnim * 1000, 0f),
-        end = Offset((translateAnim * 1000) + 200, 200f),
-    )
-
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(brush),
-    )
-}
-```
+**Blocks:** Phase B (Code Agent converts SVG → VectorDrawable → Kotlin
+ImageVector; see §3 Handoff Protocol).
 
 ---
 
-## 10. Screen-by-Screen Premium Redesign
+### Asset G — Empty-State Illustrations (3)
 
-### 10.1 Splash screen
+**Deliverable:** 3 VectorDrawable XMLs.
 
-- Rive/Lottie animation of the logo drawing itself in (1200ms).
-- After 600ms, cross-fade in the "Play2PDF" wordmark (with brand-colored "2").
-- After 800ms, fade in the tagline.
-- Hold for 2.5s total.
-- Fade out + slight scale up (1.0 → 1.05) over 400ms → navigate to onboarding.
-- Background: solid Surface0 (no gradient).
+**Style:** Geometric line art with one accent color (the brand color).
+4px stroke. Transparent or Surface 1 background.
 
-### 10.2 Onboarding (3-screen carousel)
+**List:**
+1. `app/src/main/res/drawable/empty_history.xml` — 240×180dp. Concept:
+   stack of 3 PDF documents fanning out, top one has a small brand-
+   colored sparkle in the corner.
+2. `app/src/main/res/drawable/empty_playlists.xml` — 240×180dp.
+   Concept: YouTube play button inside a circle, dashed arrow pointing
+   to a stack of pages.
+3. `app/src/main/res/drawable/empty_topics.xml` — 240×180dp. Concept:
+   chalkboard with 3 empty bullet points, small chalk-dust cloud in
+   corner.
 
-- HorizontalPager with 3 pages.
-- Page 1: "Drop a playlist. Get a study guide." + illustration.
-- Page 2: "AI maps every topic to the right video." + illustration.
-- Page 3: "Print-ready. LaTeX-grade. Yours." + illustration.
-- 3-dot page indicator (brand color for active).
-- Skip button (top-right, ghost style) on all pages.
-- Get Started button (primary, gradient) only on page 3.
-- Slide animations on page change.
+**Acceptance criteria:**
+- All 3 render at 240×180dp and below (down to 120×90dp for compact
+  layouts).
+- The brand color accent is visible but not dominant.
+- Style matches Asset B's illustration style declaration.
 
-### 10.3 Compile tab
-
-- **Sticky top app bar** with "Play2PDF" wordmark + notification bell + search icon.
-- **Greeting line** ("Good morning, Adnan") + current date subtitle.
-- **Header banner** with stat card (compilations count + topics mastered, tabular figures).
-- **Playlists card** with filled text field + paste button + neon-purple "+" button.
-- **Topics card** with chips (auto-assigned colored dots based on topic hash).
-- **Featured Playlists row** showing last 3 compilations as mini PDF cover previews.
-- **Book details card** (subject + author).
-- **Sticky bottom Compile button** with gradient + drop shadow + on-press scale + haptic.
-- **Empty state** when no playlists AND no topics: illustration + "Add your first playlist" + upward arrow.
-
-### 10.4 History tab
-
-- **Animated search field** (expands from icon to full bar on tap).
-- **Filter chips** (All / This week / This month / By subject) — brand-tinted when active.
-- **List header** "My Study Guides" + sort icon.
-- **List items** with mini PDF cover preview (40×56) + title + date + topic count + kebab menu.
-- **Swipe-to-delete** with red background + trash icon (scales up + rotates as user swipes).
-- **Undo SnackBar** for 5 seconds after delete (Gmail-style — no confirmation dialog).
-- **Empty state** with illustration + "Your study guides will live here" + CTA.
-
-### 10.5 Settings tab
-
-- **4 section headers** (uppercase, letter-spaced labels): PROFILE / API CREDENTIALS / BACKEND CONNECTION / PDF THEME.
-- **Inline auto-save** (debounced 500ms after typing stops, with "Saved ✓" indicator).
-- **Per-field test buttons** for API keys (with ✓/✗ validation indicator).
-- **Live backend status indicator** (auto-pings on app launch, shows green/yellow/red dot + latency).
-- **PDF theme grid** with full cover-page previews (not just color swatches).
-- **About section** at bottom: app version, Gemini model in use, Reset data, Send feedback.
-
-### 10.6 Compiling screen
-
-- **Branded loader** (logo mark drawing itself in on loop).
-- **Conversational status**: "Waking up the server...", "Fetching 47 videos...", "Asking Gemini to match 12 topics...", "Generating your PDF...", "Saving to your device...".
-- **Step checklist** with status icons (pending/active/done/error).
-- **Cancel button** (top-left, ghost) with confirmation dialog.
-- **Success state**: green checkmark + "Your study guide is ready!" + PDF cover preview + "Open PDF" + "Save to Downloads".
-- **Error state**: red X + "Something went wrong" + error in code-style box + "Try again" + "Copy error".
+**Blocks:** Phase D (empty states in History + Compile screens).
 
 ---
 
-## 11. Micro-Interactions & Motion Design
+### Asset H — Splash Animation (Rive)
 
-### 11.1 Press depth (everywhere)
+**Deliverable:** 1 Rive file.
 
-```kotlin
-@Composable
-fun Modifier.pressScale(
-    pressedScale: Float = 0.97f,
-    durationMs: Int = 100,
-): Modifier = composed {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) pressedScale else 1f,
-        animationSpec = Motion.fastOutSlowIn(durationMs),
-        label = "pressScale",
-    )
-    this.scale(scale).clickable(
-        interactionSource = interactionSource,
-        indication = null,
-        onClick = {},
-    )
-}
-```
+**Spec:**
+- `app/src/main/res/raw/splash_logo.riv` — Rive animation, 2 seconds,
+  60fps.
+- **Sequence:**
+  1. 0.0-1.2s: Logo mark draws itself in via stroke-dashoffset
+     animation (each of the 3 bars + the diagonal + the page corner
+     draws in sequence, 200ms each).
+  2. 1.2-1.6s: Single pulse of brand glow radiates outward (radius
+     0 → 80px → 0, opacity 0 → 0.6 → 0).
+  3. 1.6-2.0s: Logo settles (slight scale 1.0 → 1.02 → 1.0).
 
-### 11.2 Page transition (Navigation Compose)
+**Acceptance criteria:**
+- File size ≤ 30KB.
+- Plays correctly with `app.cash.rive:rive-android` library.
+- Animation completes in exactly 2 seconds.
+- Logo at end state matches Asset B's logo mark.
 
-```kotlin
-NavHost(
-    navController = navController,
-    startDestination = "splash",
-    enterTransition = {
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Left,
-            animationSpec = Motion.fastOutSlowIn(300),
-        ) + fadeIn(animationSpec = Motion.fastOutSlowIn(300))
-    },
-    exitTransition = {
-        slideOutOfContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Left,
-            animationSpec = Motion.fastOutSlowIn(250),
-        ) + fadeOut(animationSpec = Motion.fastOutSlowIn(250))
-    },
-    popEnterTransition = {
-        slideIntoContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Right,
-            animationSpec = Motion.fastOutSlowIn(250),
-        ) + fadeIn(animationSpec = Motion.fastOutSlowIn(250))
-    },
-    popExitTransition = {
-        slideOutOfContainer(
-            towards = AnimatedContentTransitionScope.SlideDirection.Right,
-            animationSpec = Motion.fastOutSlowIn(300),
-        ) + fadeOut(animationSpec = Motion.fastOutSlowIn(300))
-    },
-)
-```
+**Fallback (if Rive is too complex):**
+- `app/src/main/res/raw/splash_logo.json` — Lottie JSON exported from
+  After Effects, same sequence, ≤ 100KB.
+- Uses `com.airbnb.android:lottie-compose` library instead.
 
-### 11.3 Scroll-linked parallax
-
-```kotlin
-@Composable
-fun HeaderBanner(historyCount: Int) {
-    val scrollState = LocalScrollState.current
-    val scrollProgress by remember {
-        derivedStateOf { (scrollState.value / 200f).coerceIn(0f, 1f) }
-    }
-    val scale by animateFloatAsState(
-        targetValue = 1f - (scrollProgress * 0.08f),
-        label = "headerScale",
-    )
-    val alpha by animateFloatAsState(
-        targetValue = 1f - (scrollProgress * 0.4f),
-        label = "headerAlpha",
-    )
-
-    PremiumCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .alpha(alpha),
-    ) {
-        // ...content...
-    }
-}
-```
-
-### 11.4 Success celebration (Lottie confetti)
-
-```kotlin
-@Composable
-fun SuccessConfetti(
-    trigger: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    if (trigger) {
-        LottieAnimation(
-            composition = rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.success_confetti)),
-            iterations = 1,
-            modifier = modifier.fillMaxSize(),
-        )
-    }
-}
-```
+**Blocks:** Phase D (SplashScreen composable).
 
 ---
 
-## 12. Sound & Haptics
+### Asset I — Onboarding Illustrations (3)
 
-### 12.1 Haptics manager
+**Deliverable:** 3 VectorDrawable XMLs or PNGs.
 
-```kotlin
-@Singleton
-class HapticsManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
-    private val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-        vibratorManager.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    }
+**Style:** Same as Asset G (geometric line art + brand accent), but
+larger (240×180dp display size, exported at 3x = 720×540 source).
 
-    fun light() = vibrate(duration = 10, amplitude = 50)
-    fun medium() = vibrate(duration = 20, amplitude = 100)
-    fun heavy() = vibrate(duration = 50, amplitude = 200)
-    fun success() = pattern(longArrayOf(0, 50, 50, 50, 50, 100))
-    fun error() = vibrate(duration = 100, amplitude = 250)
+**List:**
+1. `app/src/main/res/drawable/onboarding_1.xml` — Concept: YouTube
+   play button on left, arrow pointing right, stack of PDF pages on
+   right. Headline: "Drop a playlist. Get a study guide."
+2. `app/src/main/res/drawable/onboarding_2.xml` — Concept: brain-
+   shaped cloud with lines connecting to video thumbnails and topic
+   labels. Headline: "AI maps every topic to the right video."
+3. `app/src/main/res/drawable/onboarding_3.xml` — Concept: single PDF
+   page with accent bar, QR code, and checkbox grid visible. Headline:
+   "Print-ready. LaTeX-grade. Yours."
 
-    private fun vibrate(duration: Long, amplitude: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(
-                VibrationEffect.createOneShot(duration, amplitude.coerceAtMost(255))
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(duration)
-        }
-    }
+**Acceptance criteria:**
+- All 3 render at 240×180dp without clipping.
+- Style is consistent across the set.
+- Style matches Asset G's empty-state illustrations.
 
-    private fun pattern(timings: LongArray) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator.vibrate(VibrationEffect.createWaveform(timings, -1))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator.vibrate(timings, -1)
-        }
-    }
-}
-```
-
-### 12.2 Sound manager
-
-```kotlin
-@Singleton
-class SoundManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-) {
-    private val soundPool = SoundPool.Builder()
-        .setMaxStreams(4)
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-        )
-        .build()
-
-    private val sounds = mutableMapOf<SoundEffect, Int>()
-
-    init {
-        sounds[SoundEffect.TAP] = soundPool.load(context, R.raw.sfx_tap, 1)
-        sounds[SoundEffect.CHIP_ADD] = soundPool.load(context, R.raw.sfx_chip_add, 1)
-        sounds[SoundEffect.CHIP_REMOVE] = soundPool.load(context, R.raw.sfx_chip_remove, 1)
-        sounds[SoundEffect.SUCCESS] = soundPool.load(context, R.raw.sfx_success, 1)
-        sounds[SoundEffect.ERROR] = soundPool.load(context, R.raw.sfx_error, 1)
-        sounds[SoundEffect.NAV] = soundPool.load(context, R.raw.sfx_nav, 1)
-    }
-
-    fun play(effect: SoundEffect, volume: Float = 0.3f) {
-        sounds[effect]?.let { id ->
-            soundPool.play(id, volume, volume, 1, 0, 1f)
-        }
-    }
-}
-
-enum class SoundEffect { TAP, CHIP_ADD, CHIP_REMOVE, SUCCESS, ERROR, NAV }
-```
-
-### 12.3 Haptic patterns table
-
-| Event | Pattern |
-|-------|---------|
-| Light tap | `light()` (10ms, 50 amplitude) |
-| Medium tap | `medium()` (20ms, 100 amplitude) |
-| Success | `success()` (light → 50ms → medium → 50ms → heavy) |
-| Error | `error()` (100ms, 250 amplitude — single buzz) |
-| Warning | `light()` → 30ms gap → `light()` |
-| Chip add | `light()` → 30ms gap → `medium()` |
-| Chip remove | `medium()` → 30ms gap → `light()` |
-| Page nav | `light()` (10ms) |
-| Modal open | `medium()` (20ms) |
-| Modal close | `light()` (10ms) |
-| Pull-to-refresh trigger | `medium()` (30ms) |
+**Blocks:** Phase D (OnboardingScreen).
 
 ---
 
-## 13. Implementation Order & Priority
+### Asset J — PDF Theme Preview Thumbnails (13)
 
-### Phase 1 — Brand foundation (1-2 days, no code)
+**Deliverable:** 13 PNG files.
 
-- [ ] Lock the brand color (`#7C5CFF`).
-- [ ] Commission or draw the logo mark (§5.4).
-- [ ] Pick the type pairing (Geist recommended, §5.5).
-- [ ] Write down the type roles table (§5.5) and print it.
+**List:**
+- `pdf_theme_tufte_scholar.png`
+- `pdf_theme_princeton_math.png`
+- `pdf_theme_midnight_terminal.png`
+- `pdf_theme_cambridge_emerald.png`
+- `pdf_theme_bauhaus_geometric.png`
+- `pdf_theme_swiss_stark.png`
+- `pdf_theme_oxford_burgundy.png`
+- `pdf_theme_deep_space.png`
+- `pdf_theme_mit_tech.png`
+- `pdf_theme_wharton_ledger.png`
+- `pdf_theme_sumi_ink.png`
+- `pdf_theme_renaissance_gold.png`
+- `pdf_theme_warm_sunset_dark.png`
 
-### Phase 2 — Asset production (3-5 days, mostly external)
+**Spec:**
+- All 220×280px, PNG with alpha (or no alpha if background is opaque).
+- Each shows the actual cover page of a PDF generated with that theme,
+  using placeholder subject "Data Structures & Algorithms" and author
+  "Student / Creator".
+- File size ≤ 50KB each.
 
-- [ ] Logo mark SVG + PNG exports (§5.4, §6.3).
-- [ ] Android adaptive icon: foreground, background, monochrome VectorDrawable XML (§6.1).
-- [ ] Splash icon VectorDrawable (§6.2).
-- [ ] Custom icon set: 24 Kotlin ImageVector definitions (§6.4).
-- [ ] Empty-state illustrations: 3 VectorDrawables (§6.5).
-- [ ] Splash Rive animation (§6.6).
-- [ ] PDF theme preview thumbnails: 13 PNGs (§6.8).
-- [ ] (Optional) Sound effects: 6 WAV files (§6.7).
-- [ ] (Optional) Success confetti Lottie (§11.4).
+**How to generate (Design Agent can do this OR Code Agent can do it
+as a one-off script):**
+1. Run each theme through the existing FastAPI backend's
+   `/generate_guide` endpoint once.
+2. Use `pypdfium2` to render the first page of each PDF to PNG at 2x
+   scale.
+3. Save to `app/src/main/res/drawable-nodpi/`.
 
-### Phase 3 — Project scaffold (1 day)
+**Acceptance criteria:**
+- All 13 PNGs are real PNGs (verify with `file` — must say "PNG image
+  data").
+- Each thumbnail visually matches the theme it represents (e.g.
+  midnight_terminal.png is dark with green text, cambridge_emerald.png
+  is dark green with gold accent, etc.).
+- All 13 are the same size (220×280px).
 
-- [ ] Create new Android Studio project with Empty Compose Activity.
-- [ ] Set up `build.gradle.kts` with version catalog.
-- [ ] Configure Hilt, Room, Retrofit, Coil, Navigation Compose, Lottie/Rive.
-- [ ] Create the directory structure from §4.
-- [ ] Set up `Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`, `Spacing.kt`, `Motion.kt` from §8.
-- [ ] Configure edge-to-edge + system bar styling.
-- [ ] Set up Android 12+ SplashScreen API.
-
-### Phase 4 — Design system components (2-3 days)
-
-- [ ] `PrimaryButton` with variants (§9.1).
-- [ ] `PremiumCard` with hover/press states (§9.2).
-- [ ] `GlassCard` with real `Modifier.blur` (§9.3).
-- [ ] `AnimatedChip` with spring (§9.4).
-- [ ] `Play2PdfBottomBar` with custom indicator (§9.5).
-- [ ] `ShimmerSkeleton` loader (§9.6).
-- [ ] `Modifier.neonGlow` (§7.2).
-- [ ] `Modifier.pressScale` (§11.1).
-- [ ] Custom `ImageVector` icon set (§6.4).
-
-### Phase 5 — Data layer (2 days)
-
-- [ ] Define `dataclass` domain models (Playlist, Topic, PdfHistory, Theme).
-- [ ] Set up Retrofit API client pointing at existing FastAPI backend.
-- [ ] Set up Room database (History table, Settings table).
-- [ ] Set up DataStore preferences (API keys, theme, onboarding complete).
-- [ ] Write repository implementations (CompileRepository, HistoryRepository).
-- [ ] Write Hilt modules for DI.
-
-### Phase 6 — Screens (5-7 days)
-
-- [ ] Splash (§10.1).
-- [ ] Onboarding carousel (§10.2).
-- [ ] Compile tab (§10.3).
-- [ ] History tab (§10.4).
-- [ ] Settings tab (§10.5).
-- [ ] Compiling screen (animated loader + success/error states).
-- [ ] Wire Navigation Compose with transitions (§11.2).
-
-### Phase 7 — Micro-interactions (2 days)
-
-- [ ] Tap feedback everywhere (§11.1).
-- [ ] Chip springs.
-- [ ] Page transitions (§11.2).
-- [ ] Scroll-linked animations (§11.3).
-- [ ] Success celebration (§11.4).
-- [ ] Empty-state delight.
-- [ ] Long-press context menus.
-- [ ] Pull-to-refresh.
-
-### Phase 8 — Sound & haptics (1 day)
-
-- [ ] Implement `SoundManager` (§12.2).
-- [ ] Implement `HapticsManager` (§12.1).
-- [ ] Wire into all interactions per §12.3.
-- [ ] Add Settings toggles for sound/haptics.
-
-### Phase 9 — Polish & QA (2 days)
-
-- [ ] Performance audit — 60fps scroll, sub-200ms tap response (Macrobench + Perfetto).
-- [ ] Accessibility audit — TalkBack, WCAG AA contrast, touch target sizes.
-- [ ] Real device testing on 3+ screen sizes (small phone, large phone, tablet).
-- [ ] Slow-network testing (Android emulator network throttling).
-- [ ] Low-battery mode testing.
-- [ ] Predictive back gesture (Android 14+).
-- [ ] Themed icons (Android 13+).
-- [ ] Edge-to-edge camera cutout handling.
-
-**Total estimated time:** 18-25 days of focused work, or 5-7 weeks
-part-time. This is what "premium" actually costs.
+**Blocks:** Phase D (ThemePreviewCard in SettingsScreen).
 
 ---
 
-## 14. Asset Generation Toolkit
+### Asset K — Sound Effects (6 WAV Files)
 
-### 14.1 Logo design
+**Deliverable:** 6 WAV files.
 
-- **Figma** (free) — design as vector, export as SVG → convert to VectorDrawable via Android Studio's "Vector Asset" import.
-- **Adobe Illustrator** (paid) — industry standard.
-- **Affinity Designer** ($70 one-time) — best value alternative.
-- **Hire a designer:** Dribbble, Behance, Fiverr ($50-500 for logo + brand kit).
+**List:**
+1. `app/src/main/res/raw/sfx_tap.wav` — subtle low-pass filtered click.
+2. `app/src/main/res/raw/sfx_chip_add.wav` — rising chirp.
+3. `app/src/main/res/raw/sfx_chip_remove.wav` — falling chirp.
+4. `app/src/main/res/raw/sfx_success.wav` — single soft chime.
+5. `app/src/main/res/raw/sfx_error.wav` — low buzz at ~80Hz.
+6. `app/src/main/res/raw/sfx_nav.wav` — very subtle wood-tap.
 
-### 14.2 Custom icon set (Kotlin ImageVector)
+**Specs:**
+- All ≤ 50ms duration.
+- All ≤ 5KB file size.
+- All mono (not stereo).
+- All 44.1kHz, 16-bit WAV.
 
-Two approaches:
+**Acceptance criteria:**
+- All 6 files play correctly via `SoundPool`.
+- All 6 sound "premium" — no clipping, no harsh frequencies, no
+  recognizable stock-sound-library artifacts.
+- Set is cohesive (all 6 sound like they came from the same product).
 
-**Approach A: SVG → VectorDrawable → ImageVector**
-1. Design icons in Figma at 24×24 viewBox, 2px stroke.
-2. Export as SVG.
-3. In Android Studio: `res` → `New` → `Vector Asset` → import SVG.
-4. Android Studio generates VectorDrawable XML.
-5. Use the `materialIcon` DSL to wrap as `ImageVector`.
+**Blocks:** Phase F (SoundManager wiring). If not delivered, Code
+Agent leaves `SoundManager` fully implemented but with silent no-ops
+for each sound — app still works, just silent.
 
-**Approach B: Hand-code ImageVector**
-- Use the `materialIcon` DSL to define icons directly in Kotlin.
-- More work, but full control.
+---
 
-**Fork starting points:**
-- **Phosphor Icons** (free, MIT) — 6,000+ icons at 1.5px stroke. Fork and customize.
-- **Lucide** (free, ISC) — 1,000+ icons, fork of Feather.
+### Asset L — Success Confetti Lottie
 
-**Hire a designer:** $200-500 for 24-icon custom set on Dribbble.
+**Deliverable:** 1 Lottie JSON file.
 
-### 14.3 Illustrations
+**Spec:**
+- `app/src/main/res/raw/success_confetti.json` — Lottie animation, 1
+  second, 60fps.
+- 20 small brand-colored particles (mix of brand color, brand dark,
+  and white) burst from center, physics-based fall (gravity + slight
+  horizontal drift), fade out at end.
 
-- **LottieFiles** (free + paid) — Lottie animations and stills.
-- **unDraw** (free, MIT) — open-source illustrations, recolor to match brand.
-- **Storyset** (free) — customizable illustrations.
-- **Blush** (free + paid) — customizable illustration packs.
-- **Hire an illustrator:** $300-1,000 for 3 custom illustrations.
+**Acceptance criteria:**
+- File size ≤ 50KB.
+- Plays correctly via `com.airbnb.android:lottie-compose`.
+- Particles are visible against the dark Surface0 background.
 
-### 14.4 Splash animation
+**Blocks:** Phase E (SuccessConfetti composable). If not delivered,
+Code Agent uses a custom Canvas-based particle burst as fallback.
 
-- **Rive** (free) — modern standard for app animations. Exports `.riv` files, ~10KB each. Rive has a native Compose library: `app.cash.rive:rive-android`.
-- **Lottie** + After Effects (paid AE) — exports `.json`. Lottie Compose library: `com.airbnb.android:lottie-compose`.
-- **Hire a motion designer:** $200-500 for 2-second splash.
+---
 
-### 14.5 Sound effects
+### Asset M — Font Files
 
-- **Freesound** (free, CC0) — search "UI tap", "UI click", "notification". Filter ≤ 1 second.
-- **Pixabay Sounds** (free).
-- **Zapsplat** (free with attribution).
-- **UI Sounds** (paid, $19) — premium UI pack, 200 sounds.
-- **Hire a sound designer:** $50-200 for 6-sound UI pack.
+**Deliverable:** 8 TTF/OTF font files.
 
-### 14.6 PDF theme preview thumbnails
+**List (per Asset A's type pairing decision — assuming Geist + Geist
+Mono + Fraunces):**
+- `app/src/main/res/font/geist_regular.ttf`
+- `app/src/main/res/font/geist_medium.ttf`
+- `app/src/main/res/font/geist_semibold.ttf`
+- `app/src/main/res/font/geist_bold.ttf`
+- `app/src/main/res/font/geist_mono_regular.ttf`
+- `app/src/main/res/font/geist_mono_medium.ttf`
+- `app/src/main/res/font/geist_mono_bold.ttf`
+- `app/src/main/res/font/fraunces_regular.ttf`
+- `app/src/main/res/font/fraunces_semibold.ttf`
 
-Generate via Python script using the existing FastAPI backend:
+**Specs:**
+- All TTF or OTF (no WOFF — Android doesn't support WOFF).
+- All licensed for app embedding (Geist is SIL OFL, Fraunces is SIL
+  OFL — both free for commercial use).
 
-```python
-import pypdfium2 as pdfium
-import requests
+**Acceptance criteria:**
+- All files load correctly via `FontFamily(Font(R.font.*))`.
+- Weights render correctly (Regular / Medium / SemiBold / Bold are
+  visually distinguishable).
+- File names match the resource IDs Code Agent expects in `Type.kt`.
 
-THEMES = [
-    "tufte_scholar", "princeton_math", "midnight_terminal",
-    "cambridge_emerald", "bauhaus_geometric", "swiss_stark",
-    "oxford_burgundy", "deep_space", "mit_tech", "wharton_ledger",
-    "sumi_ink", "renaissance_gold", "warm_sunset_dark",
-]
+**Blocks:** Phase B (Type.kt implementation). If not delivered, Code
+Agent uses `FontFamily.Default` (Roboto) as fallback.
 
-BACKEND = "https://adnanfoisal-play2pdf.hf.space"
+---
 
-for theme in THEMES:
-    resp = requests.post(f"{BACKEND}/generate_guide", json={
-        "youtube_key": "<your key>",
-        "gemini_key": "<your key>",
-        "subject": "Data Structures & Algorithms",
-        "author": "Student / Creator",
-        "playlist_urls": ["https://www.youtube.com/playlist?list=<your playlist>"],
-        "topics": "Arrays, Linked Lists, Stacks",
-        "theme": theme,
-    }, timeout=300)
-    pdf = pdfium.PdfDocument.from_bytes(resp.content)
-    page = pdf[0]
-    bitmap = page.render(scale=2.0)
-    pil_image = bitmap.to_pil()
-    pil_image.save(f"pdf_theme_{theme}.png")
-    print(f"Generated: pdf_theme_{theme}.png")
+### Asset N — Final Figma Mockups
+
+**Deliverable:** 1 Figma file with all 6 screens designed at production
+fidelity.
+
+**Screens:**
+1. Splash (showing Rive animation's final frame).
+2. Onboarding (3 pages, each with the final illustration).
+3. Compile (with all sections, real content, real icons).
+4. History (with 3 sample items + empty state).
+5. Settings (with all 4 sections, real data).
+6. Compiling (showing all 3 states: in-progress, success, error).
+
+**Acceptance criteria:**
+- All screens use the locked brand color and type pairing from Asset A.
+- All icons are from Asset F's custom set.
+- All illustrations are from Assets G + I.
+- All PDF theme previews are from Asset J.
+- Mockups are pixel-perfect — Code Agent should be able to match them
+  1:1 in Compose.
+
+**Blocks:** Phase G (final QA — Code Agent compares implemented
+screens against the Figma mockups).
+
+---
+
+## 3. Dependencies & Handoff Protocol
+
+### 3.1 Dependency graph
+
+```
+Asset A (Brand Spec)
+  ├── blocks → Phase B (Design System Implementation)
+  ├── blocks → Asset B (Logo Design — needs brand color)
+  ├── blocks → Asset C (Adaptive Icon — needs logo)
+  ├── blocks → Asset D (Splash Icon — needs logo)
+  ├── blocks → Asset E (In-App Logo — needs logo)
+  ├── blocks → Asset F (Custom Icons — needs illustration style)
+  ├── blocks → Asset G (Empty States — needs illustration style)
+  ├── blocks → Asset I (Onboarding Illustrations — needs illustration style)
+  └── blocks → Asset M (Fonts — needs type pairing decision)
+
+Asset B (Logo)
+  ├── blocks → Asset C (Adaptive Icon foreground)
+  ├── blocks → Asset D (Splash Icon)
+  ├── blocks → Asset E (In-App Logo)
+  └── blocks → Asset H (Splash Rive — animates the logo)
+
+Phase A (Project Foundation)
+  ├── blocks → Phase B
+  ├── blocks → Phase C
+  └── references → Asset C, Asset D (manifest references)
+
+Phase B (Design System Implementation)
+  ├── needs → Asset A (brand color + type pairing)
+  ├── needs → Asset F (custom icons → ImageVector)
+  ├── needs → Asset M (font files)
+  └── blocks → Phase D (Screens need design system)
+
+Phase C (Data Layer)
+  └── blocks → Phase D (Screens need repositories)
+
+Phase D (UI Implementation)
+  ├── needs → Phase B + Phase C
+  ├── needs → Asset E (in-app logo for splash + onboarding)
+  ├── needs → Asset G (empty states for History + Compile)
+  ├── needs → Asset H (Rive splash animation)
+  ├── needs → Asset I (onboarding illustrations)
+  └── needs → Asset J (PDF theme previews for Settings)
+
+Phase E (Micro-interactions)
+  ├── needs → Phase D
+  └── needs → Asset L (Success Confetti Lottie)
+
+Phase F (Sound & Haptics Wiring)
+  ├── needs → Phase E
+  └── needs → Asset K (Sound effects)
+
+Phase G (Polish & QA)
+  ├── needs → Phase F
+  └── needs → Asset N (Final Figma mockups for comparison)
 ```
 
-Place output PNGs in `app/src/main/res/drawable-nodpi/`.
+### 3.2 Placeholder policy
+
+While waiting for Design Agent assets, Code Agent uses these
+placeholders so development is never blocked:
+
+| Asset missing | Code Agent placeholder |
+|---------------|------------------------|
+| Asset A (brand spec) | Hardcode `#7C5CFF` brand color, Geist type pairing. Mark with `// TODO: replace with Design Agent's locked values`. |
+| Asset B (logo) | Use `AppIcons.Sparkle` (Asset F's sparkle icon) at 96dp inside a brand-tinted rounded square. |
+| Asset C (adaptive icon) | Use a single-color VectorDrawable with "P2P" text. App will install but with placeholder launcher icon. |
+| Asset D (splash icon) | Same as Asset B placeholder. |
+| Asset E (in-app logo) | Same as Asset B placeholder. |
+| Asset F (custom icons) | Use Material Icons (`Icons.R.PlayArrow`, etc.) with `// TODO: replace with AppIcons.*` comments. |
+| Asset G (empty states) | Use `AppIcons.Inbox` (Material fallback) at 96dp inside a Surface2 rounded square. |
+| Asset H (splash Rive) | Use `CircularProgressIndicator` with brand color. Less premium but unblocks development. |
+| Asset I (onboarding illustrations) | Use `AppIcons.Sparkle` (large) at 240dp with brand tint. |
+| Asset J (PDF theme previews) | Use `AppIcons.Pdf` at 56dp inside a brand-tinted rounded rectangle. |
+| Asset K (sound effects) | `SoundManager.play()` is a no-op (returns immediately). App is silent but functional. |
+| Asset L (success confetti) | Custom `Canvas`-based particle burst in Code Agent (60 lines of Kotlin). Less polished than Lottie but works. |
+| Asset M (font files) | Use `FontFamily.Default` (Roboto). App works but loses Geist's character. |
+| Asset N (Figma mockups) | Code Agent ships without pixel-perfect comparison. QA is "looks good enough" instead of "matches mockup 1:1". |
+
+### 3.3 Handoff protocol
+
+When Design Agent delivers an asset:
+
+1. **Design Agent** pushes the file(s) to the agreed path in the repo
+   (per the path column in §0.2 Ownership Matrix).
+2. **Design Agent** opens a PR titled `design: deliver asset X` with
+   a checklist of acceptance criteria from §2.
+3. **Code Agent** reviews the PR:
+   - Verifies file format (real PNG, real VectorDrawable XML, etc.).
+   - Verifies dimensions and file size constraints.
+   - Verifies the asset renders correctly (open in Android Studio
+     preview).
+4. **Code Agent** merges the PR.
+5. **Code Agent** removes the corresponding placeholder code (per
+   §3.2) and replaces it with a reference to the delivered asset.
+6. **Code Agent** commits with message `refactor: replace placeholder
+   for asset X with delivered asset`.
+
+### 3.4 Asset delivery order (recommended)
+
+To unblock Code Agent as fast as possible, Design Agent should deliver
+in this order:
+
+1. **Asset A** (Brand Spec) — 1 day. Unblocks Phase B.
+2. **Asset B** (Logo) — 2 days. Unblocks Assets C, D, E, H.
+3. **Asset M** (Fonts) — 1 day (download from Geist GitHub). Unblocks
+   Phase B fully.
+4. **Asset C** (Adaptive Icon) — 1 day. Unblocks Phase A's manifest
+   reference.
+5. **Asset F** (Custom Icons) — 3 days. Unblocks Phase B's `Icon.kt`.
+6. **Asset H** (Splash Rive) — 2 days. Unblocks Phase D's splash.
+7. **Asset I** (Onboarding Illustrations) — 2 days. Unblocks Phase D's
+   onboarding.
+8. **Asset G** (Empty States) — 2 days. Unblocks Phase D's empty states.
+9. **Asset J** (PDF Theme Previews) — 1 day. Unblocks Phase D's Settings.
+10. **Asset D + E** (Splash + In-App Icons) — 1 day. Polish.
+11. **Asset K** (Sound Effects) — 2 days. Unblocks Phase F.
+12. **Asset L** (Success Confetti) — 1 day. Unblocks Phase E.
+13. **Asset N** (Final Figma Mockups) — 3 days. Unblocks Phase G QA.
+
+**Total Design Agent time:** ~15-20 days of focused work, parallel to
+Code Agent's 18-25 days.
 
 ---
 
-## 15. Quality Checklist
+## 4. Implementation Timeline (Parallel Work Streams)
 
-Before shipping ANY screen:
+Two parallel tracks. Design Agent starts first (Asset A blocks the
+most), Code Agent starts Phase A immediately (no design dependencies).
 
-### 15.1 Visual
+```
+Day  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+    ├─────────────────────────────────────────────────────────────────────────┤
+DESIGN  ████████████████████████████████████████
+    Asset A (Brand Spec)      ██████
+    Asset B (Logo)                  ████████
+    Asset M (Fonts)                 ████
+    Asset C (Adaptive Icon)             ██████
+    Asset F (Custom Icons)                  ████████████
+    Asset H (Splash Rive)                        ████████
+    Asset I (Onboarding)                              ████████
+    Asset G (Empty States)                                    ████████
+    Asset J (PDF Previews)                                        ██████
+    Asset D + E (Splash + In-App)                                     ██████
+    Asset K (Sounds)                                                      ████████
+    Asset L (Confetti)                                                        ████
+    Asset N (Figma Mockups)                                              ████████████
+    ├─────────────────────────────────────────────────────────────────────────┤
+CODE    ████████████████████████████████████████████████████████████████
+    Phase A (Foundation)  ████
+    Phase B (Design Sys)       ████████████
+    Phase C (Data Layer)           ████████
+    Phase D (UI)                           ██████████████████
+    Phase E (Micro-Interactions)                          ████████
+    Phase F (Sound/Haptics)                                    ██████
+    Phase G (Polish & QA)                                          ████████
+    Phase H (Backend)                                             ░░░░░░░░░░░░ (ongoing)
+    ├─────────────────────────────────────────────────────────────────────────┤
+```
 
-- [ ] No default Material Icons — all icons are custom `ImageVector`.
-- [ ] No "card with 1px border" — every card has layered shadows.
-- [ ] No hardcoded colors — all from `MaterialTheme.colorScheme`.
-- [ ] No hardcoded sizes — all from `Spacing.*`, `Radius.*`.
-- [ ] No `Color.Black` / `Color.White` literals — all from `Color.kt`.
+### Critical path
+
+The longest dependency chain is:
+
+```
+Asset A (1d) → Asset B (2d) → Asset F (3d) → Phase B (3d) → Phase D (7d) → Phase E (2d) → Phase F (1d) → Phase G (2d) = 21 days
+```
+
+So the project ships in **~21 days of focused work**, assuming both
+agents work in parallel and Design Agent delivers in the recommended
+order.
+
+If Design Agent is unavailable, Code Agent can ship a "developer
+preview" build in ~15 days using all placeholders from §3.2. It will
+look amateur but be functionally complete.
+
+---
+
+## 5. Quality Checklist (Joint)
+
+Before shipping, BOTH agents verify their respective items.
+
+### 5.1 Code Agent checklist
+
+**Visual:**
+- [ ] No default Material Icons — all icons are custom `ImageVector`
+      from Asset F.
+- [ ] No hardcoded colors — all from `MaterialTheme.colorScheme` or
+      `Color.kt` constants.
+- [ ] No hardcoded sizes — all from `Spacing.*` or `Radius.*`.
+- [ ] No `Color.Black` / `Color.White` literals.
 - [ ] All uppercase labels have 8% letter-spacing.
 - [ ] All long text has `maxLines` + `overflow = TextOverflow.Ellipsis`.
 
-### 15.2 Motion
-
+**Motion:**
 - [ ] Every interactive element has press scale (0.97, 100ms).
 - [ ] Every page transition uses specified curve (not default).
 - [ ] Every modal open/close has spring.
 - [ ] Every list item add/remove has spring.
-- [ ] No `Thread.sleep` in animations — always `delay()` in coroutines.
+- [ ] No `Thread.sleep` in animations — always `delay()`.
 - [ ] No layout thrashing during animations.
 
-### 15.3 Performance
-
-- [ ] 60fps scroll on a mid-range device (verify with Macrobench).
+**Performance:**
+- [ ] 60fps scroll on a mid-range device (Macrobench).
 - [ ] Sub-200ms tap response.
-- [ ] No layout jank when keyboard opens (`WindowInsets.imeAnimationSource`).
 - [ ] Splash exits under 3 seconds.
-- [ ] App cold-start to first usable screen under 2 seconds.
+- [ ] App cold-start under 2 seconds.
 - [ ] No "white flash" between splash and first screen.
-- [ ] Use `derivedStateOf` for expensive state derivations.
-- [ ] Use `key()` for list items to prevent unnecessary recomposition.
+- [ ] `derivedStateOf` on expensive state derivations.
+- [ ] `key()` on all `LazyColumn` / `LazyRow` items.
 
-### 15.4 Accessibility
+**Accessibility:**
+- [ ] WCAG AA contrast on every text/background pair.
+- [ ] Every interactive element ≥ 48×48dp.
+- [ ] Every meaningful icon has `contentDescription`.
+- [ ] TalkBack navigates every screen logically.
+- [ ] Reduced motion respected.
 
-- [ ] All text contrast ≥ 4.5:1 (WCAG AA).
-- [ ] All interactive elements ≥ 48×48dp touch target.
-- [ ] All icons have `contentDescription` (or `null` if decorative).
-- [ ] Focus order is logical (top-to-bottom, left-to-right).
-- [ ] Focus ring visible on every interactive element.
-- [ ] `Modifier.semantics` used where appropriate.
-- [ ] Reduced motion respected (`Settings.Global.ANIMATOR_DURATION_SCALE`).
-
-### 15.5 Copy
-
-- [ ] No Lorem Ipsum.
-- [ ] No TODO/FIXME in user-visible strings.
-- [ ] No technical jargon (say "server URL", not "backend_url").
-- [ ] Conversational tone in loading states ("Waking up the server...").
-- [ ] Error messages tell the user what to do next.
-
-### 15.6 Brand consistency
-
-- [ ] Logo appears in splash, onboarding, app icon, About — all the same.
-- [ ] Brand color in: primary CTA, active nav, focus ring, links, brand-tinted chips. NOWHERE else.
-- [ ] Wordmark "Play2PDF" always has the "2" in brand color.
-- [ ] No emoji in user-visible copy.
-
-### 15.7 Native Android
-
-- [ ] Edge-to-edge layout (`WindowCompat.setDecorFitsSystemWindows(window, false)`).
+**Native Android:**
+- [ ] Edge-to-edge layout.
 - [ ] System bars tinted to match app background.
 - [ ] Predictive back gesture (Android 14+).
-- [ ] Themed icons (Android 13+, `ic_launcher_monochrome`).
+- [ ] Themed icons (Android 13+).
 - [ ] Per-app language preferences (Android 13+).
 - [ ] Adaptive icon for all launcher shapes.
-- [ ] Splash screen via Android 12+ SplashScreen API.
-- [ ] Deep link support (`<intent-filter>` for `play2pdf://` scheme).
-- [ ] Notification channel for "PDF ready" notifications.
+- [ ] SplashScreen API (Android 12+).
+- [ ] Deep link support.
+- [ ] Notification channel for "PDF ready".
+
+**Backend:**
+- [ ] `/ping` returns 200 in < 1s when awake.
+- [ ] Cold-start time < 60s.
+- [ ] No unhandled exceptions in production logs.
+- [ ] CORS allows the Android app's package origin.
+- [ ] Uses `gemini-3.6-flash` (latest GA, verified).
+
+### 5.2 Design Agent checklist
+
+**Brand:**
+- [ ] Asset A delivered and locked.
+- [ ] No "TBD" or "maybe" in brand spec.
+
+**Logo:**
+- [ ] Asset B passes all 7 readability tests.
+- [ ] Logo looks identical across splash, onboarding, app icon, About.
+
+**Icons:**
+- [ ] All 24 icons in Asset F open cleanly in Android Studio Vector
+      Asset importer.
+- [ ] Visual weight is consistent across the set.
+- [ ] Stroke width is 2px everywhere.
+- [ ] All icons pass the "blurred to 4px" readability test.
+
+**Illustrations:**
+- [ ] All 3 empty states (Asset G) match the illustration style declared
+      in Asset A.
+- [ ] All 3 onboarding illustrations (Asset I) match the same style.
+- [ ] Style is consistent across the set.
+
+**Adaptive Icon:**
+- [ ] Foreground content centered in inner 72dp safe zone.
+- [ ] Logo visible in all 4 launcher mask shapes (circle, squircle,
+      rounded square, full square).
+- [ ] Monochrome is pure white with alpha.
+
+**Animations:**
+- [ ] Asset H (splash Rive) plays correctly and matches Asset B's logo.
+- [ ] Asset L (confetti Lottie) plays correctly and particles are
+      visible against Surface0.
+
+**Sounds:**
+- [ ] All 6 sounds in Asset K are ≤ 50ms and ≤ 5KB.
+- [ ] All 6 are mono, 44.1kHz, 16-bit WAV.
+- [ ] Set is cohesive (sounds like one product).
+
+**Fonts:**
+- [ ] All 9 font files in Asset M load correctly via `FontFamily(Font
+      (R.font.*))`.
+- [ ] Weights are visually distinguishable.
+- [ ] License allows app embedding.
+
+**Final:**
+- [ ] Asset N (Figma mockups) covers all 6 screens at production
+      fidelity.
+- [ ] Mockups use the locked brand color and type pairing from Asset A.
+- [ ] Mockups use icons from Asset F, illustrations from Assets G + I,
+      PDF previews from Asset J.
+
+---
+
+## 6. Appendix A — Reference to v2.0 Technical Detail
+
+The following sections from `PREMIUM_DESIGN_PLAN.md` v2.0 remain the
+authoritative technical reference. Code Agent implements per these
+specs; Design Agent produces assets per these specs.
+
+| v2.0 Section | What it covers | Used by |
+|--------------|----------------|--------|
+| §1 | Why rewrite in Kotlin + Jetpack Compose | Context only |
+| §2 | Brutal truth audit of old Flet app | Context only |
+| §3 | What "premium" means (7 principles) | Context only |
+| §4 | Project architecture (full directory tree + tech stack table) | Code Agent Phase A |
+| §5.1-5.7 | Brand identity (color, logo spec, typography, spacing, radius) | Design Agent Assets A + B + M |
+| §6.1-6.8 | Asset inventory (adaptive icon, splash icon, in-app logo, custom icons, empty states, splash animation, sound effects, PDF previews) | Design Agent Assets C-L |
+| §7.1 | Real backdrop blur (`Modifier.blur` + `GlassCard` source) | Code Agent Phase B |
+| §7.2 | Real neon glow (`Modifier.neonGlow` source) | Code Agent Phase B |
+| §7.3 | Micro-typography in Compose | Code Agent Phase B |
+| §7.4 | Motion principles (Compose animation APIs table) | Code Agent Phase E |
+| §8.1-8.6 | Design system in Compose (full Color.kt, Theme.kt, Type.kt, Spacing.kt, Shape.kt, Motion.kt source) | Code Agent Phase B |
+| §9.1-9.6 | Component polish (PrimaryButton, PremiumCard, GlassCard, AnimatedChip, BottomBar, ShimmerSkeleton — full Kotlin source) | Code Agent Phase B |
+| §10.1-10.6 | Screen-by-screen redesign (splash, onboarding, compile, history, settings, compiling) | Code Agent Phase D |
+| §11.1-11.4 | Micro-interactions (pressScale, page transitions, scroll parallax, confetti — full Kotlin source) | Code Agent Phase E |
+| §12.1-12.3 | Sound & haptics (HapticsManager, SoundManager source, haptic patterns table) | Code Agent Phase F |
+| §14.1-14.6 | Asset generation toolkit (Figma, Rive, LottieFiles, Phosphor, etc.) | Design Agent (all assets) |
+
+When in doubt, the v2.0 plan has the technical detail. This v3.0 plan
+has the ownership and handoff protocol.
 
 ---
 
 ## Final note
 
-This document is intentionally long and detailed because "premium"
-lives in the details. Every section corresponds to a specific thing
-that currently makes the app look amateur, and every fix is concrete
-enough to implement directly in Kotlin + Jetpack Compose.
+This plan exists to make sure nothing falls through the cracks. Every
+line item has one owner, one acceptance criterion, and one handoff
+protocol.
+
+**Code Agent's job:** ship a 60fps, accessible, native-feeling Kotlin +
+Jetpack Compose app that talks to the existing FastAPI backend. Use
+placeholders for any missing Design Agent asset so development is
+never blocked.
+
+**Design Agent's job:** produce a real brand, real logo, real custom
+icons, real illustrations, real animations, real sounds. Without
+these, the app is functionally complete but visually amateur.
+
+Both agents work in parallel. Both agents ship to the same repo. Both
+agents respect the ownership matrix in §0.2.
 
 The bar is not "good enough for an Android app". The bar is "would
 Linear / Arc / Things 3 / Craft ship this on iOS?" If the answer is
 no, keep working.
 
-When in doubt: **fewer things, done better**. A screen with 3
-beautifully-designed composables beats a screen with 10 generic
-ones every single time.
+When in doubt: **fewer things, done better.**
 
 — End of document —
