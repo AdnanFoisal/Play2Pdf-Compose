@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>My Study Guides</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk@latest/latin-500.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk@latest/latin-600.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/space-grotesk@latest/latin-700.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@latest/latin-400.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@latest/latin-500.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@latest/latin-600.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/manrope@latest/latin-700.css" />
+<style>
+  :root{
+    --font-display:'Space Grotesk', system-ui, sans-serif;
+    --font-body:'Manrope', system-ui, sans-serif;
+
+    --line:rgba(255,255,255,.06);
+    --line-strong:rgba(255,255,255,.12);
+
+    --txt:#f3f5fb;
+    --txt-2:#9aa3b8;
+    --txt-3:#79829a;
+    --txt-4:#646d84;
+
+    --violet:#a78bfa;
+    --violet-glow:#8b5cf6;
+
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--font-body);
+    background:
+      radial-gradient(1200px 700px at 50% -10%, #131a2c 0%, rgba(19,26,44,0) 60%),
+      radial-gradient(900px 600px at 85% 110%, #0e1422 0%, rgba(14,20,34,0) 55%),
+      #05070d;
+    color:var(--txt);
+    height:100vh;
+    height:100dvh;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- screen (fills the real device viewport) ---------- */
+  .screen{
+    position:relative;
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- header ---------- */
+  .header{
+    padding:calc(var(--sat) + 14px) 22px 16px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    flex:0 0 auto;
+  }
+  .header h1{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:24px;
+    letter-spacing:-.4px;
+    line-height:1.1;
+  }
+  .header p{
+    margin-top:5px;
+    font-size:13px;
+    color:var(--txt-3);
+    font-weight:500;
+  }
+  .header-actions{display:flex; gap:10px; padding-top:2px;}
+  .icon-btn{
+    width:42px; height:42px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.035);
+    color:var(--txt-2);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+  }
+  .icon-btn:hover{background:rgba(255,255,255,.08); color:var(--txt); border-color:var(--line-strong); transform:translateY(-1px);}
+  .icon-btn:active{transform:scale(.92);}
+
+  /* ---------- list ---------- */
+  .list{
+    flex:1 1 auto;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:4px 18px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(255,255,255,.12) transparent;
+  }
+  .list::-webkit-scrollbar{width:5px;}
+  .list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:8px;}
+
+  /* ---------- card ---------- */
+  .card{
+    --card-bg:#121829;
+    position:relative;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0) 60%),
+      var(--card-bg);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:16px 16px 14px 20px;
+    overflow:hidden;
+    display:flex;
+    gap:12px;
+    cursor:pointer;
+    opacity:0;
+    transform:translateY(14px);
+    animation:fadeUp .55s cubic-bezier(.2,.7,.2,1) forwards;
+    animation-delay:calc(var(--i) * 80ms + .1s);
+    transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease, background .22s ease;
+  }
+  .card:hover{
+    transform:translateY(-3px);
+    border-color:var(--line-strong);
+    box-shadow:0 16px 34px -16px rgba(var(--glow),.45), 0 4px 14px -8px rgba(0,0,0,.6);
+  }
+  .card:active{transform:translateY(-1px) scale(.995);}
+
+  /* left accent bar */
+  .bar{
+    position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:linear-gradient(180deg, var(--bar-top), var(--bar-bot));
+  }
+  .bar::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, transparent, rgba(255,255,255,.65), transparent);
+    background-size:100% 220%;
+    animation:shimmer 3.4s linear infinite;
+    opacity:.5;
+  }
+  @keyframes shimmer{0%{background-position:0 -120%;}100%{background-position:0 220%;}}
+
+  .card-main{
+    flex:1 1 auto;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .card-title{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:16.5px;
+    letter-spacing:-.2px;
+    color:var(--txt);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .card-theme{
+    font-size:12.5px;
+    color:var(--txt-2);
+    font-weight:500;
+    margin-top:-2px;
+  }
+  .card-stats{
+    display:flex; align-items:center; gap:7px;
+    font-size:11.5px;
+    color:var(--txt-3);
+    font-weight:500;
+    white-space:nowrap;
+  }
+  .stat{display:inline-flex; align-items:center; gap:5px;}
+  .stat svg{color:var(--txt-4); flex:0 0 auto;}
+  .plus{color:var(--txt-4); font-size:12px; transform:translateY(-.5px);}
+
+  .card-side{
+    flex:0 0 auto;
+    width:62px;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    justify-content:space-between;
+  }
+  .dots{
+    width:26px; height:26px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--txt-3);
+    background:transparent; border:none; cursor:pointer;
+    transition:background .18s ease, color .18s ease, transform .18s ease;
+  }
+  .dots:hover{background:rgba(255,255,255,.07); color:var(--txt);}
+  .dots:active{transform:scale(.9);}
+
+  .pdf-svg{
+    width:46px; height:58px;
+    filter:drop-shadow(0 6px 12px rgba(0,0,0,.4));
+    transition:transform .25s ease, filter .25s ease;
+  }
+  .card:hover .pdf-svg{transform:rotate(-3deg) scale(1.04); filter:drop-shadow(0 8px 16px rgba(var(--glow),.4));}
+  .pdf-svg .pt{stop-color:var(--pdf-top);}
+  .pdf-svg .pb{stop-color:var(--pdf-bot);}
+  .pdf-svg .body{stroke:rgba(255,255,255,.14); stroke-width:1;}
+  .pdf-svg .fold{fill:rgba(255,255,255,.22);}
+  .pdf-svg .label{fill:#fff; font:700 12px/1 var(--font-body); letter-spacing:.6px;}
+
+  .card-date{
+    font-size:11px;
+    color:var(--txt-4);
+    font-weight:500;
+    white-space:nowrap;
+  }
+
+  @keyframes fadeUp{to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- nav ---------- */
+  .navbar{
+    flex:0 0 auto;
+    position:relative;
+    padding:12px 18px calc(var(--sab) + 8px);
+    display:flex;
+    justify-content:space-around;
+    border-top:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(10,14,24,0), rgba(8,11,20,.6));
+  }
+  .nav-item{
+    flex:1;
+    background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+    color:var(--txt-4);
+    font-family:var(--font-body);
+    font-size:11px; font-weight:600;
+    padding:4px 0;
+    position:relative;
+    transition:color .2s ease, transform .2s ease;
+  }
+  .nav-item:hover{color:var(--txt-2);}
+  .nav-item:active{transform:scale(.94);}
+  .nav-item .ico{position:relative; display:flex; align-items:center; justify-content:center; height:24px;}
+  .nav-item.active{color:var(--violet);}
+  .nav-item.active .ico::before{
+    content:"";
+    position:absolute;
+    width:46px; height:46px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(139,92,246,.55), rgba(139,92,246,0) 70%);
+    animation:pulseGlow 2.6s ease-in-out infinite;
+    z-index:-1;
+  }
+  @keyframes pulseGlow{
+    0%,100%{opacity:.6; transform:scale(.9);}
+    50%{opacity:1; transform:scale(1.12);}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; }
+    .card{ opacity:1; transform:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="screen">
+
+    <!-- header -->
+    <div class="header">
+      <div>
+        <h1>My Study Guides</h1>
+        <p>Your compiled PDF library</p>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.3-3.3"/></svg>
+        </button>
+        <button class="icon-btn" aria-label="Filter">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h9"/><path d="M18 7h2"/><circle cx="15.5" cy="7" r="2"/>
+            <path d="M4 12h2"/><path d="M11 12h9"/><circle cx="8.5" cy="12" r="2"/>
+            <path d="M4 17h11"/><circle cx="18" cy="17" r="2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- list -->
+    <div class="list">
+
+      <!-- card 1 -->
+      <article class="card" style="--i:0; --bar-top:#fbbf24; --bar-bot:#ea580c; --pdf-top:#818cf8; --pdf-bot:#4f46e5; --glow:245,158,11;">
+        <span class="bar"></span>
+        <div class="card-main">
+          <div class="card-title">Data Structures &amp; Algo</div>
+          <div class="card-theme">Tufte Scholar Theme</div>
+          <div class="card-stats">
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>48 topics</span>
+            <span class="plus">+</span>
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-3v10l-6-3"/></svg>45 videos</span>
+          </div>
+        </div>
+        <div class="card-side">
+          <button class="dots" aria-label="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          <svg class="pdf-svg" viewBox="0 0 46 58" aria-hidden="true">
+            <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pt"/><stop offset="1" class="pb"/></linearGradient></defs>
+            <path class="body" d="M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z" fill="url(#g1)"/>
+            <path class="fold" d="M31 1V11a4 4 0 0 0 4 4H45Z"/>
+            <text class="label" x="23" y="39" text-anchor="middle">PDF</text>
+          </svg>
+          <span class="card-date">Today, 9:30 AM</span>
+        </div>
+      </article>
+
+      <!-- card 2 -->
+      <article class="card" style="--i:1; --bar-top:#d946ef; --bar-bot:#7c3aed; --pdf-top:#a78bfa; --pdf-bot:#7c3aed; --glow:192,38,211;">
+        <span class="bar"></span>
+        <div class="card-main">
+          <div class="card-title">Operating Systems</div>
+          <div class="card-theme">Princeton Math Theme</div>
+          <div class="card-stats">
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>32 topics</span>
+            <span class="plus">+</span>
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-3v10l-6-3"/></svg>28 videos</span>
+          </div>
+        </div>
+        <div class="card-side">
+          <button class="dots" aria-label="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          <svg class="pdf-svg" viewBox="0 0 46 58" aria-hidden="true">
+            <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pt"/><stop offset="1" class="pb"/></linearGradient></defs>
+            <path class="body" d="M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z" fill="url(#g2)"/>
+            <path class="fold" d="M31 1V11a4 4 0 0 0 4 4H45Z"/>
+            <text class="label" x="23" y="39" text-anchor="middle">PDF</text>
+          </svg>
+          <span class="card-date">Yesterday, 6:15 PM</span>
+        </div>
+      </article>
+
+      <!-- card 3 -->
+      <article class="card" style="--i:2; --bar-top:#34d399; --bar-bot:#0d9488; --pdf-top:#34d399; --pdf-bot:#059669; --glow:16,185,129;">
+        <span class="bar"></span>
+        <div class="card-main">
+          <div class="card-title">Database Systems</div>
+          <div class="card-theme">Midnight Terminal Theme</div>
+          <div class="card-stats">
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>25 topics</span>
+            <span class="plus">+</span>
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-3v10l-6-3"/></svg>31 videos</span>
+          </div>
+        </div>
+        <div class="card-side">
+          <button class="dots" aria-label="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          <svg class="pdf-svg" viewBox="0 0 46 58" aria-hidden="true">
+            <defs><linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pt"/><stop offset="1" class="pb"/></linearGradient></defs>
+            <path class="body" d="M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z" fill="url(#g3)"/>
+            <path class="fold" d="M31 1V11a4 4 0 0 0 4 4H45Z"/>
+            <text class="label" x="23" y="39" text-anchor="middle">PDF</text>
+          </svg>
+          <span class="card-date">May 18, 2024</span>
+        </div>
+      </article>
+
+      <!-- card 4 -->
+      <article class="card" style="--i:3; --bar-top:#60a5fa; --bar-bot:#2563eb; --pdf-top:#60a5fa; --pdf-bot:#2563eb; --glow:37,99,235;">
+        <span class="bar"></span>
+        <div class="card-main">
+          <div class="card-title">Computer Networks</div>
+          <div class="card-theme">Oxford Blue Theme</div>
+          <div class="card-stats">
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>30 topics</span>
+            <span class="plus">+</span>
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-3v10l-6-3"/></svg>27 videos</span>
+          </div>
+        </div>
+        <div class="card-side">
+          <button class="dots" aria-label="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          <svg class="pdf-svg" viewBox="0 0 46 58" aria-hidden="true">
+            <defs><linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pt"/><stop offset="1" class="pb"/></linearGradient></defs>
+            <path class="body" d="M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z" fill="url(#g4)"/>
+            <path class="fold" d="M31 1V11a4 4 0 0 0 4 4H45Z"/>
+            <text class="label" x="23" y="39" text-anchor="middle">PDF</text>
+          </svg>
+          <span class="card-date">May 17, 2024</span>
+        </div>
+      </article>
+
+      <!-- card 5 -->
+      <article class="card" style="--i:4; --bar-top:#4ade80; --bar-bot:#15803d; --pdf-top:#4ade80; --pdf-bot:#16a34a; --glow:34,197,94;">
+        <span class="bar"></span>
+        <div class="card-main">
+          <div class="card-title">Discrete Mathematics</div>
+          <div class="card-theme">Evergreen Theme</div>
+          <div class="card-stats">
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 13l9 5 9-5"/></svg>22 topics</span>
+            <span class="plus">+</span>
+            <span class="stat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="m16 10 6-3v10l-6-3"/></svg>19 videos</span>
+          </div>
+        </div>
+        <div class="card-side">
+          <button class="dots" aria-label="More"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          <svg class="pdf-svg" viewBox="0 0 46 58" aria-hidden="true">
+            <defs><linearGradient id="g5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="pt"/><stop offset="1" class="pb"/></linearGradient></defs>
+            <path class="body" d="M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z" fill="url(#g5)"/>
+            <path class="fold" d="M31 1V11a4 4 0 0 0 4 4H45Z"/>
+            <text class="label" x="23" y="39" text-anchor="middle">PDF</text>
+          </svg>
+          <span class="card-date">May 15, 2024</span>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- nav -->
+    <nav class="navbar">
+      <button class="nav-item" data-nav>
+        <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 6c-2-1.3-4.5-2-7-2v13c2.5 0 5 .7 7 2 2-1.3 4.5-2 7-2V4c-2.5 0-5 .7-7 2Z"/><path d="M12 6v13"/></svg></span>
+        Compile
+      </button>
+      <button class="nav-item active" data-nav>
+        <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
+        History
+      </button>
+      <button class="nav-item" data-nav>
+        <span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v2.2M12 19.2v2.2M21.4 12h-2.2M4.8 12H2.6M18.3 5.7l-1.6 1.6M7.3 16.7l-1.6 1.6M18.3 18.3l-1.6-1.6M7.3 7.3 5.7 5.7"/></svg></span>
+        Settings
+      </button>
+    </nav>
+  </div>
+
+<script>
+  // functional bottom nav
+  const navItems = document.querySelectorAll('[data-nav]');
+  navItems.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      navItems.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

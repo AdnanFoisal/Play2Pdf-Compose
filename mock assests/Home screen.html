@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Study Guide — Compile</title>
+<style>
+  :root{
+    --bg:#0a0a12;
+    --card:#14141e;
+    --card-row:#1b1b27;
+    --border:rgba(255,255,255,.06);
+    --border-soft:rgba(255,255,255,.04);
+    --text:#f4f4f7;
+    --muted:#8a8a99;
+    --muted-2:#6f6f80;
+    --purple:#a78bfa;
+    --purple-strong:#8b5cf6;
+    --gold:#f5b942;
+    --yt:#ff1a1a;
+    --grad:linear-gradient(90deg,#7c3aed 0%,#6d5cf0 45%,#3b82f6 100%);
+    --radius:18px;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+
+  html,body{height:100%;}
+
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    height:100vh;
+    height:100dvh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- Screen content ---------- */
+  .screen{padding:calc(var(--sat) + 12px) 20px 12px;}
+
+  /* Header */
+  .header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    margin:8px 0 18px;
+  }
+  .header h1{font-size:24px;font-weight:700;letter-spacing:-.3px;}
+  .header p{color:var(--muted);font-size:13.5px;margin-top:4px;}
+  .crown{
+    width:42px;height:42px;border-radius:50%;
+    background:#15151f;
+    border:1px solid rgba(245,185,66,.35);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+
+  /* Generic card */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:14px;
+  }
+
+  /* Stats card */
+  .stats{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 18px;
+    gap:16px;
+  }
+  .stats .label{color:var(--muted);font-size:13px;}
+  .stats .num{font-size:34px;font-weight:700;margin:6px 0 4px;line-height:1;}
+  .stats .sub{color:var(--muted-2);font-size:12.5px;}
+  .chart{width:150px;max-width:40vw;height:64px;flex-shrink:0;}
+
+  /* Section label */
+  .section{
+    color:var(--purple);
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:1.4px;
+    text-transform:uppercase;
+    margin:6px 2px 10px;
+  }
+
+  /* Card header row */
+  .card-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .card-head .left{display:flex;align-items:center;gap:9px;}
+  .card-head h2{font-size:16px;font-weight:600;}
+  .badge{
+    background:rgba(139,92,246,.18);
+    color:var(--purple);
+    font-size:12px;font-weight:600;
+    padding:2px 9px;border-radius:8px;
+  }
+  .add{
+    color:var(--purple);
+    font-size:13px;font-weight:600;
+    background:none;border:none;cursor:pointer;
+  }
+
+  /* Playlist rows */
+  .row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    background:var(--card-row);
+    border:1px solid var(--border-soft);
+    border-radius:13px;
+    padding:11px 12px;
+    margin-bottom:10px;
+  }
+  .row:last-child{margin-bottom:0;}
+  .yt{
+    width:38px;height:30px;border-radius:9px;
+    background:var(--yt);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .row .meta{flex:1;min-width:0;}
+  .row .meta .t{font-size:14px;font-weight:600;}
+  .row .meta .s{font-size:12px;color:var(--muted);margin-top:2px;}
+  .kebab{color:var(--muted);background:none;border:none;cursor:pointer;padding:4px;}
+
+  /* Topic pills */
+  .pills{display:flex;flex-wrap:wrap;gap:10px;}
+  .pill{
+    border:1px solid rgba(139,92,246,.30);
+    background:rgba(139,92,246,.05);
+    color:var(--text);
+    font-size:13px;font-weight:500;
+    padding:9px 18px;
+    border-radius:22px;
+    cursor:pointer;
+  }
+  .pill.plus{
+    width:42px;height:40px;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--muted);
+    border-radius:13px;
+  }
+
+  /* PDF theme row */
+  .pdf{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    flex-wrap:wrap;
+  }
+  .pdf .lbl{font-size:14.5px;font-weight:600;}
+  .pdf .field{
+    flex:1;
+    min-width:100px;
+    background:var(--card-row);
+    border:1px solid var(--border-soft);
+    border-radius:11px;
+    padding:9px 14px;
+    color:var(--muted);
+    font-size:13.5px;
+    text-align:center;
+  }
+  .pdf .change{
+    background:rgba(139,92,246,.16);
+    color:var(--purple);
+    border:none;cursor:pointer;
+    font-size:13px;font-weight:600;
+    padding:9px 16px;border-radius:11px;
+  }
+
+  /* Compile button */
+  .compile{
+    width:100%;
+    border:none;cursor:pointer;
+    background:var(--grad);
+    color:#fff;
+    font-size:15.5px;font-weight:600;
+    padding:16px;
+    border-radius:15px;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    margin:4px 0 18px;
+    box-shadow:0 10px 24px rgba(108,76,230,.35);
+  }
+
+  /* Bottom nav */
+  .nav{
+    display:flex;
+    justify-content:space-around;
+    padding:6px 0 4px;
+    border-top:1px solid var(--border-soft);
+  }
+  .nav button{
+    background:none;border:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:5px;
+    color:var(--muted);
+    font-size:11px;font-weight:500;
+  }
+  .nav button.active{color:var(--purple);}
+
+  .home-ind-spacer{
+    height: calc(var(--sab) + 8px);
+  }
+</style>
+</head>
+<body>
+
+  <div class="screen">
+
+    <!-- Header -->
+    <div class="header">
+      <div>
+        <h1>Hello, Adnan 👋</h1>
+        <p>Let's build your study guide</p>
+      </div>
+      <div class="crown">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--gold)">
+          <path d="M3 7l3.5 3L12 4l5.5 6L21 7l-1.5 11h-15L3 7zm1.8 13h14.4v2H4.8v-2z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Stats card -->
+    <div class="card stats">
+      <div>
+        <div class="label">Total Compilations</div>
+        <div class="num">12</div>
+        <div class="sub">This month</div>
+      </div>
+      <svg class="chart" viewBox="0 0 150 64" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#8b5cf6"/>
+            <stop offset="1" stop-color="#38bdf8"/>
+          </linearGradient>
+          <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7c3aed" stop-opacity=".35"/>
+            <stop offset="1" stop-color="#7c3aed" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="M0,42 C12,40 16,33 26,35 C36,37 40,48 50,40 C60,32 66,24 78,30 C90,36 96,46 108,34 C118,24 124,12 132,18 C140,24 144,34 150,28 L150,64 L0,64 Z" fill="url(#fill)"/>
+        <path d="M0,42 C12,40 16,33 26,35 C36,37 40,48 50,40 C60,32 66,24 78,30 C90,36 96,46 108,34 C118,24 124,12 132,18 C140,24 144,34 150,28" fill="none" stroke="url(#line)" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <div class="section">Your Workspace</div>
+
+    <!-- Playlists -->
+    <div class="card">
+      <div class="card-head">
+        <div class="left">
+          <h2>Playlists</h2>
+          <span class="badge">2</span>
+        </div>
+        <button class="add">+ Add Playlist</button>
+      </div>
+
+      <div class="row">
+        <div class="yt">
+          <svg width="13" height="13" viewBox="0 0 12 12" fill="#fff"><path d="M2 1.5v9l8-4.5z"/></svg>
+        </div>
+        <div class="meta">
+          <div class="t">Data Structures &amp; Algorithms</div>
+          <div class="s">45 videos</div>
+        </div>
+        <button class="kebab">
+          <svg width="5" height="18" viewBox="0 0 5 18" fill="currentColor">
+            <circle cx="2.5" cy="2.5" r="2"/><circle cx="2.5" cy="9" r="2"/><circle cx="2.5" cy="15.5" r="2"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="row">
+        <div class="yt">
+          <svg width="13" height="13" viewBox="0 0 12 12" fill="#fff"><path d="M2 1.5v9l8-4.5z"/></svg>
+        </div>
+        <div class="meta">
+          <div class="t">Discrete Mathematics</div>
+          <div class="s">32 videos</div>
+        </div>
+        <button class="kebab">
+          <svg width="5" height="18" viewBox="0 0 5 18" fill="currentColor">
+            <circle cx="2.5" cy="2.5" r="2"/><circle cx="2.5" cy="9" r="2"/><circle cx="2.5" cy="15.5" r="2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Topics -->
+    <div class="card">
+      <div class="card-head">
+        <div class="left">
+          <h2>Topics / Syllabus</h2>
+          <span class="badge">6</span>
+        </div>
+        <button class="add">+ Add Topic</button>
+      </div>
+      <div class="pills">
+        <button class="pill">Arrays</button>
+        <button class="pill">Linked Lists</button>
+        <button class="pill">Stacks</button>
+        <button class="pill">Queues</button>
+        <button class="pill">Trees</button>
+        <button class="pill plus">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M8 3v10M3 8h10"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- PDF theme -->
+    <div class="card pdf">
+      <span class="lbl">PDF Theme</span>
+      <span class="field">Tufte Scholar</span>
+      <button class="change">Change</button>
+    </div>
+
+    <!-- Compile -->
+    <button class="compile">
+      <svg width="16" height="18" viewBox="0 0 16 18" fill="#fff"><path d="M9 0L1 10h5l-1 8 8-11H8l1-7z"/></svg>
+      Compile Study Track
+    </button>
+
+  </div><!-- /screen -->
+
+  <!-- Bottom nav -->
+  <div class="nav">
+    <button class="active">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4a2 2 0 012-2h5v18H6a2 2 0 01-2-2V4zm9-2h5a2 2 0 012 2v14a2 2 0 01-2 2h-5V2z"/></svg>
+      Compile
+    </button>
+    <button>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 109-9 9 9 0 00-7 3.3"/><path d="M3 4v4h4"/><path d="M12 8v4l3 2"/></svg>
+      History
+    </button>
+    <button>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-2.7 1.1V21a2 2 0 11-4 0v-.1A1.6 1.6 0 007 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.6 1.6 0 002.6 14H2.5a2 2 0 110-4h.1A1.6 1.6 0 004.6 7a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1A1.6 1.6 0 0010 2.6V2.5a2 2 0 114 0v.1A1.6 1.6 0 0017 4.6a1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1h.1a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/></svg>
+      Settings
+    </button>
+  </div>
+
+  <div class="home-ind-spacer"></div>
+
+</body>
+</html>
