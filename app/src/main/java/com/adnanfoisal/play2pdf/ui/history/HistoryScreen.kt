@@ -417,16 +417,17 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
             close()
         }
         drawPath(path = fold, color = Color.White.copy(alpha = 0.22f))
-        // "PDF" label — drawn via drawIntoCanvas + nativeCanvas for text.
-        drawIntoCanvas { canvas ->
-            val paint = android.graphics.Paint().apply {
-                color = android.graphics.Color.WHITE
-                textSize = 12f * sx
-                isFakeBoldText = true
-                textAlign = android.graphics.Paint.Align.CENTER
-                letterSpacing = 0.06f
-            }
-            canvas.nativeCanvas.drawText("PDF", 23f * sx, 39f * sy, paint)
+        // "PDF" label — three small white lines suggesting text on the document.
+        val labelY = 32f * sy
+        val labelW = 18f * sx
+        val labelH = 1.6f * sy
+        repeat(3) { i ->
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.7f),
+                topLeft = Offset((14f + i * 6f) * sx, labelY + i * 4f * sy),
+                size = androidx.compose.ui.geometry.Size(labelW - i * 3f * sx, labelH),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(labelH, labelH)
+            )
         }
     }
 }

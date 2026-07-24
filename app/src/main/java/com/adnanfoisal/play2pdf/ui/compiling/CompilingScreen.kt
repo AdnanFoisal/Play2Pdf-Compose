@@ -333,13 +333,14 @@ private fun ProgressRing(progress: Float) {
                 radius = r
             )
             val sweepAngle = (animatedPct / 100f) * 360f
+            val arcSize = androidx.compose.ui.geometry.Size(r * 2, r * 2)
             drawArc(
                 brush = sweep,
                 startAngle = -90f,
                 sweepAngle = sweepAngle,
                 useCenter = false,
                 topLeft = Offset(center.x - r, center.y - r),
-                size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
+                size = arcSize,
                 style = Stroke(width = strokeW, cap = StrokeCap.Round)
             )
 
