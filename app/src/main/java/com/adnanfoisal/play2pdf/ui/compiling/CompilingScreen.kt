@@ -371,7 +371,7 @@ private fun ProgressRing(progress: Float) {
                 )
                 Text(
                     text = "%",
-                    color = Color(0xFFd9d6ee),
+                    color = BrandColors.TextPrimary.copy(alpha = 0.85f),
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -417,7 +417,7 @@ private fun StepRow(step: TrackerStep, state: StepState, isLast: Boolean) {
                 color = when (state) {
                     StepState.Done -> BrandColors.TextPrimary
                     StepState.Active -> BrandColors.TextPrimary
-                    StepState.Pending -> Color(0xFFb9b8cc)
+                    StepState.Pending -> BrandColors.TextSecondary.copy(alpha = 0.7f)
                 },
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
@@ -470,7 +470,7 @@ private fun StepDot(state: StepState) {
                 .clip(CircleShape)
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(Color(0xFF34d36b), BrandColors.GreenDeep)
+                        colors = listOf(BrandColors.Green, BrandColors.GreenDeep)
                     )
                 ),
             contentAlignment = Alignment.Center
@@ -574,7 +574,7 @@ private fun ProTipCard() {
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Great study guides are built from the right content. You're doing awesome!",
-                    color = Color(0xFFb6b4c8),
+                    color = BrandColors.TextSecondary.copy(alpha = 0.7f),
                     fontSize = 13.sp,
                     lineHeight = 19.5.sp
                 )

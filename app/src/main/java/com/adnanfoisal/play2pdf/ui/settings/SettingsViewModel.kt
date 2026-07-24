@@ -31,7 +31,7 @@ data class SettingsUiState(
 class SettingsViewModel @Inject constructor(
     private val repo: SettingsRepository,
     private val connection: ConnectionRepository,
-    private val testConnection: TestConnectionUseCase
+    private val testConnectionUseCase: TestConnectionUseCase
 ) : ViewModel() {
 
     val state: StateFlow<SettingsUiState> = combine(
@@ -50,7 +50,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         // Kick off a connection test on first load so the indicator isn't stuck on "Offline".
-        viewModelScope.launch { testConnection() }
+        viewModelScope.launch { testConnectionUseCase() }
     }
 
     // --- Per-field setters with 500ms debounced save indicator ------------
@@ -75,7 +75,6 @@ class SettingsViewModel @Inject constructor(
 
     fun testConnection() {
         viewModelScope.launch {
-            testConnection()
+            testConnectionUseCase()
         }
     }
-}

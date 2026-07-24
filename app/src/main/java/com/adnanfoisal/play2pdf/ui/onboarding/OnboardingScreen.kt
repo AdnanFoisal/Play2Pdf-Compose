@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.adnanfoisal.play2pdf.R
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButtonVariant
@@ -49,12 +50,23 @@ import kotlinx.coroutines.launch
  *  - Skip button (top-right), page indicator dots, Get Started button on
  *    page 3.
  *  - Page transitions use HorizontalPager's default spring — good enough.
+ *
+ * When the user finishes onboarding (Get Started or Skip), [OnboardingViewModel]
+ * persists [onboardingComplete] so this screen only shows once after install.
  */
 @Composable
-fun OnboardingScreen(onComplete: () -> Unit) {
+fun OnboardingScreen(
+    onComplete: () -> Unit,
+    viewModel: OnboardingViewModel = hiltViewModel()
+) {
     val pageCount = 3
     val pagerState = rememberPagerState(pageCount = { pageCount })
     val scope = rememberCoroutineScope()
+
+    val finish = {
+        viewModel.markOnboardingComplete()
+        onComplete()
+    }
 
     val pages = listOf(
         OnboardingPage(
@@ -84,7 +96,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(Spacing.lg)
-                .pressScaleClickable(onClick = onComplete)
+                .pressScaleClickable(onClick = finish)
         )
 
         Column(
@@ -125,7 +137,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     "Next",
                 onClick = {
                     if (pagerState.currentPage == pageCount - 1) {
-                        onComplete()
+                        finish()
                     } else {
                         scope.launch {
                             pagerState.animateScrollToPage(

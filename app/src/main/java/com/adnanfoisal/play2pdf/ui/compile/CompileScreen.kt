@@ -242,7 +242,7 @@ private fun GreetingHeader(userName: String) {
             modifier = Modifier
                 .size(42.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF15151f))
+                .background(BrandColors.Surface1)
                 .border(1.dp, BrandColors.Gold.copy(alpha = 0.35f), CircleShape),
             contentAlignment = Alignment.Center
         ) {

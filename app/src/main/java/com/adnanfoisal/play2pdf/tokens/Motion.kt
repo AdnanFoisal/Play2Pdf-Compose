@@ -29,7 +29,7 @@ object Motion {
         const val Short = 200    // ms — chip add/remove
         const val Medium = 300   // ms — page transition
         const val Long = 500     // ms — modal open
-        const val Splash = 2500  // ms — splash screen hold
+        const val Splash = 3200  // ms — splash screen hold (matches MP4 animation)
     }
 
     object Easings {
