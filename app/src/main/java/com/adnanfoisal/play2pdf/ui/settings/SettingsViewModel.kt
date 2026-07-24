@@ -78,3 +78,4 @@ class SettingsViewModel @Inject constructor(
             testConnectionUseCase()
         }
     }
+}
