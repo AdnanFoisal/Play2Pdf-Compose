@@ -3,21 +3,28 @@ package com.adnanfoisal.play2pdf.theme
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import com.adnanfoisal.play2pdf.R
 
 /**
  * Typography roles for Play2PDF.
  *
- * Type pairing (per Asset A spec): Geist Sans + Geist Mono + Fraunces.
- * Until Design Agent delivers the actual font files (Asset M), we fall
- * back to [FontFamily.Default] (Roboto on AOSP, Inter on Pixel). The
- * fallback is gated behind [GeistLoaded] so swapping in real fonts later
- * is a one-line change.
+ * Type pairing locked from mockups (per IMPLEMENTATION_PLAN.md §Design Tokens):
+ *  - Display / headings: **Space Grotesk** (weight 500/600/700)
+ *  - Body: **DM Sans** (weight 400/500/700) — History screen also references
+ *    Manrope; DM Sans is the primary, Manrope is the visual sibling and we
+ *    don't ship a separate file.
  *
- * 10 type roles (per Asset A spec):
+ * Both fonts are loaded as variable TTFs from `res/font/`. Compose picks the
+ * correct weight instance via the `Font(resId, weight)` overload — for
+ * variable fonts this resolves the `wght` axis, for static fonts it just
+ * loads the file. Either way the API is identical.
+ *
+ * 10 type roles:
  *  Display   — splash wordmark, hero numbers
  *  Title 1   — screen titles (large)
  *  Title 2   — section headers
@@ -25,25 +32,40 @@ import androidx.compose.ui.unit.sp
  *  Body      — default body
  *  Body Small— metadata, captions inline
  *  Caption   — helper text, footnotes
- *  Label     — uppercase chips, eyebrow text (8% letter-spacing)
+ *  Label     — uppercase chips, eyebrow text (1.4 letter-spacing)
  *  Code      — error stack traces, API key fields (monospace)
  *  Stat      — big numbers in History / Compiling
  *
  * Usage:
- *   Text("Hello", style = MaterialTheme.typography.titleMedium)  // ← Title 2
- *   Text("hello", style = AppType.label)                          // ← Label
+ *   Text("Hello", style = MaterialTheme.typography.titleMedium)  // <- Title 2
+ *   Text("hello", style = AppType.label)                          // <- Label
  */
 object AppType {
 
-    /** Family fallback — see class kdoc. */
+    /** Space Grotesk — display / headings. Loaded from R.font.space_grotesk. */
+    private val SpaceGrotesk: FontFamily
+        @Composable get() = FontFamily(
+            Font(R.font.space_grotesk, FontWeight.Medium),
+            Font(R.font.space_grotesk, FontWeight.SemiBold),
+            Font(R.font.space_grotesk, FontWeight.Bold)
+        )
+
+    /** DM Sans — body text. Loaded from R.font.dm_sans. */
+    private val DmSans: FontFamily
+        @Composable get() = FontFamily(
+            Font(R.font.dm_sans, FontWeight.Normal),
+            Font(R.font.dm_sans, FontWeight.Medium),
+            Font(R.font.dm_sans, FontWeight.Bold)
+        )
+
     private val Sans: FontFamily
-        @Composable get() = if (GeistLoaded) GeistFamily else FontFamily.Default
+        @Composable get() = DmSans
 
     private val Mono: FontFamily
-        @Composable get() = if (GeistLoaded) GeistMonoFamily else FontFamily.Monospace
+        @Composable get() = FontFamily.Monospace
 
     private val Display: FontFamily
-        @Composable get() = if (GeistLoaded) FrauncesFamily else FontFamily.Serif
+        @Composable get() = SpaceGrotesk
 
     val display: TextStyle
         @Composable get() = TextStyle(
@@ -56,16 +78,16 @@ object AppType {
 
     val title1: TextStyle
         @Composable get() = TextStyle(
-            fontFamily = Sans,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 28.sp,
-            lineHeight = 34.sp,
-            letterSpacing = (-0.01).sp
+            fontFamily = Display,
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp,
+            lineHeight = 30.sp,
+            letterSpacing = (-0.3).sp
         )
 
     val title2: TextStyle
         @Composable get() = TextStyle(
-            fontFamily = Sans,
+            fontFamily = Display,
             fontWeight = FontWeight.SemiBold,
             fontSize = 22.sp,
             lineHeight = 28.sp
@@ -73,8 +95,8 @@ object AppType {
 
     val title3: TextStyle
         @Composable get() = TextStyle(
-            fontFamily = Sans,
-            fontWeight = FontWeight.Medium,
+            fontFamily = Display,
+            fontWeight = FontWeight.SemiBold,
             fontSize = 18.sp,
             lineHeight = 24.sp
         )
@@ -106,10 +128,10 @@ object AppType {
     val label: TextStyle
         @Composable get() = TextStyle(
             fontFamily = Sans,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.5.sp,
             lineHeight = 16.sp,
-            letterSpacing = 1.0.sp  // ~8% letter-spacing for uppercase labels
+            letterSpacing = 1.4.sp
         )
 
     val code: TextStyle
@@ -123,7 +145,7 @@ object AppType {
     val stat: TextStyle
         @Composable get() = TextStyle(
             fontFamily = Display,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             fontSize = 36.sp,
             lineHeight = 40.sp,
             textAlign = TextAlign.Center
@@ -152,14 +174,11 @@ object AppType {
         )
 }
 
-// --- Font family stubs -------------------------------------------------
-// These are declared `internal const val GeistLoaded = false` so the swap
-// to real fonts is one PR. When Asset M lands, replace the Boolean with
-// a real check (e.g. `FontFamily(Font(R.font.geist_regular))` definitions
-// gated on the resource existing) and update [GeistFamily] / [GeistMonoFamily]
-// / [FrauncesFamily] below.
+// --- Legacy font-family stubs (kept so any leftover references compile) ---
+// The app now loads real fonts via R.font.* above. These are retained as
+// no-op aliases for any code that still references the old Geist placeholders.
 
-internal const val GeistLoaded = false
+internal const val GeistLoaded = true
 
 internal val GeistFamily = FontFamily.Default
 internal val GeistMonoFamily = FontFamily.Monospace

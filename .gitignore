@@ -72,8 +72,10 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 
-# Gradle wrapper binaries — keep properties + scripts, skip the binary
-gradle/wrapper/gradle-wrapper.jar
+# Gradle wrapper binaries — MUST be committed so the project builds
+# from a fresh clone without a system Gradle install. The jar is small
+# (~43KB) and is the standard Android Studio convention.
+# (kept intentionally — do NOT ignore gradle-wrapper.jar)
 
 # macOS
 .DS_Store

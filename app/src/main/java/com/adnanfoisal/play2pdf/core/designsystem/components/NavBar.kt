@@ -1,8 +1,14 @@
 package com.adnanfoisal.play2pdf.core.designsystem.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -111,6 +119,44 @@ fun Play2PdfBottomBar(
                             )
                             .padding(horizontal = Spacing.md, vertical = Spacing.xs)
                     ) {
+                        // Pulsing radial glow behind the active icon —
+                        // per IMPLEMENTATION_PLAN.md Step 7 + history screen.html
+                        // `pulseGlow` keyframe (scale 0.9→1.12, alpha 0.6→1.0, 2600ms).
+                        if (isActive) {
+                            val glowTransition = rememberInfiniteTransition(label = "navGlow")
+                            val glowScale by glowTransition.animateFloat(
+                                initialValue = 0.9f,
+                                targetValue = 1.12f,
+                                animationSpec = infiniteRepeatable(
+                                    tween(2600, easing = LinearEasing),
+                                    RepeatMode.Reverse
+                                ),
+                                label = "navGlowScale"
+                            )
+                            val glowAlpha by glowTransition.animateFloat(
+                                initialValue = 0.6f,
+                                targetValue = 1.0f,
+                                animationSpec = infiniteRepeatable(
+                                    tween(2600, easing = LinearEasing),
+                                    RepeatMode.Reverse
+                                ),
+                                label = "navGlowAlpha"
+                            )
+                            Canvas(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .scale(glowScale)
+                            ) {
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            BrandColors.BrandStrong.copy(alpha = 0.55f * glowAlpha),
+                                            BrandColors.BrandStrong.copy(alpha = 0f)
+                                        )
+                                    )
+                                )
+                            }
+                        }
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.label,

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- PLACEHOLDER — Design Agent will replace per Asset C. -->
+<!-- Adaptive icon background — solid mockup dark surface (#0a0a12, the Home
+     screen --bg value). Per IMPLEMENTATION_PLAN.md Step 2. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#09090B"
+        android:fillColor="#0a0a12"
         android:pathData="M0,0 H108 V108 H0 Z" />
 </vector>

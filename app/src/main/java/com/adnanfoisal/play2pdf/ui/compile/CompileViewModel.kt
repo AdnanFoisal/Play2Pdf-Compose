@@ -11,17 +11,28 @@ import com.adnanfoisal.play2pdf.domain.usecase.ExtractTopicsUseCase
 import com.adnanfoisal.play2pdf.domain.usecase.FetchPlaylistMetaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Home-screen stats shown in the GreetingHeader's StatsCard.
+ *
+ * Per IMPLEMENTATION_PLAN.md Step 4: `totalCount` comes from `HistoryDao.count()`
+ * and `sparkline` comes from grouping `HistoryDao.observeAll()` by day-of-month.
+ * Until the HistoryDao wiring lands (a follow-up), we fall back to the
+ * mockup's demo curve so the UI matches `Home screen.html` visually.
+ */
+data class HomeStats(
+    val totalCount: Int = 0,
+    val sparkline: List<Float> = emptyList()
+)
+
 data class CompileUiState(
+    val userName: String = "",
+    val stats: HomeStats = HomeStats(),
     val playlists: List<Playlist> = emptyList(),
     val topics: List<Topic> = emptyList(),
     val topicInput: String = "",
@@ -57,16 +68,24 @@ class CompileViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompileUiState())
-    val state: StateFlow<CompileUiState> = _state.asStateFlow()
+    val state = _state.asStateFlow()
 
     init {
-        // Pre-fill author from saved user name + theme from saved preference.
+        // Pre-fill author from saved user name + theme from saved preference,
+        // and expose the userName so the GreetingHeader can render it.
         viewModelScope.launch {
             val s = settings.settings.first()
             _state.update {
                 it.copy(
+                    userName = s.userName,
                     author = s.userName,
-                    selectedTheme = s.selectedTheme
+                    selectedTheme = s.selectedTheme,
+                    // Demo stats — matches the Home screen.html mockup until
+                    // HistoryDao wiring lands. The mockup shows "12 / This month".
+                    stats = HomeStats(
+                        totalCount = 0,
+                        sparkline = demoSparkline()
+                    )
                 )
             }
         }
@@ -209,4 +228,12 @@ class CompileViewModel @Inject constructor(
             )
         }
     }
+
+    /**
+     * Demo sparkline values normalized 0..1 — mirrors the curve in
+     * `Home screen.html` lines 257–258. Used only while history is empty.
+     */
+    private fun demoSparkline(): List<Float> =
+        listOf(0.34f, 0.38f, 0.48f, 0.42f, 0.25f, 0.30f, 0.56f, 0.44f, 0.30f,
+               0.20f, 0.36f, 0.52f, 0.66f, 0.72f, 0.56f)
 }
