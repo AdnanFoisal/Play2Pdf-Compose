@@ -329,8 +329,7 @@ private fun ProgressRing(progress: Float) {
                     BrandColors.Cyan,
                     BrandColors.Fuchsia
                 ),
-                center = center,
-                radius = r
+                center = center
             )
             val sweepAngle = (animatedPct / 100f) * 360f
             val arcSize = androidx.compose.ui.geometry.Size(r * 2, r * 2)
