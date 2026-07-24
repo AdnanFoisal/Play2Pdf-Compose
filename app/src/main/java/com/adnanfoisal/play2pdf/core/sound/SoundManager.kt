@@ -46,16 +46,18 @@ class SoundManager @Inject constructor(
     }
 
     private fun loadSound(effect: SoundEffect): Int {
-        val resId = when (effect) {
-            SoundEffect.Tap -> R.raw.sfx_tap
-            SoundEffect.ChipAdd -> R.raw.sfx_chip_add
-            SoundEffect.ChipRemove -> R.raw.sfx_chip_remove
-            SoundEffect.Success -> R.raw.sfx_success
-            SoundEffect.Error -> R.raw.sfx_error
-            SoundEffect.Nav -> R.raw.sfx_nav
+        // Look up the raw resource by name. If the WAV files haven't been
+        // delivered yet (Design Agent Asset K), the lookup returns 0 and
+        // play() silently no-ops — the app stays functional but silent.
+        val resName = when (effect) {
+            SoundEffect.Tap -> "sfx_tap"
+            SoundEffect.ChipAdd -> "sfx_chip_add"
+            SoundEffect.ChipRemove -> "sfx_chip_remove"
+            SoundEffect.Success -> "sfx_success"
+            SoundEffect.Error -> "sfx_error"
+            SoundEffect.Nav -> "sfx_nav"
         }
-        // If the resource doesn't exist (Design Agent hasn't delivered Asset K),
-        // R.raw.sfx_* will be 0 — load() returns 0, which play() no-ops on.
+        val resId = context.resources.getIdentifier(resName, "raw", context.packageName)
         return if (resId != 0) pool.load(context, resId, 1) else 0
     }
 

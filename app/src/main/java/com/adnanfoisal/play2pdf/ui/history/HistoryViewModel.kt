@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,8 +43,7 @@ class HistoryViewModel @Inject constructor(
         _query,
         _filter,
         // When the query is non-empty, search; otherwise observe all.
-        // Both branches return Flow<List<PdfHistory>>.
-        kotlinx.coroutines.flow.flatMapLatest { q ->
+        _query.flatMapLatest { q ->
             if (q.isBlank()) repo.observeAll() else repo.search(q)
         }
     ) { query, filter, items ->

@@ -10,7 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.offset
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.unit.IntOffset
 import com.adnanfoisal.play2pdf.tokens.Motion
 import kotlinx.coroutines.launch
@@ -25,21 +25,21 @@ import kotlinx.coroutines.launch
  *   Column(modifier = Modifier.errorShake(trigger = formErrors)) { ... }
  */
 fun Modifier.errorShake(trigger: Any?): Modifier = composed {
-    val offset = remember { Animatable(0f) }
+    val shakeOffset = remember { Animatable(0f) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(trigger) {
         if (trigger != null) {
             // 0 → -8 → 8 → -4 → 4 → 0
             launch {
-                offset.animateTo(-8f, tween(80, easing = Motion.Easings.Standard))
-                offset.animateTo(8f, tween(80, easing = Motion.Easings.Standard))
-                offset.animateTo(-4f, tween(80, easing = Motion.Easings.Standard))
-                offset.animateTo(4f, tween(80, easing = Motion.Easings.Standard))
-                offset.animateTo(0f, tween(80, easing = Motion.Easings.Standard))
+                shakeOffset.animateTo(-8f, tween(80, easing = Motion.Easings.Standard))
+                shakeOffset.animateTo(8f, tween(80, easing = Motion.Easings.Standard))
+                shakeOffset.animateTo(-4f, tween(80, easing = Motion.Easings.Standard))
+                shakeOffset.animateTo(4f, tween(80, easing = Motion.Easings.Standard))
+                shakeOffset.animateTo(0f, tween(80, easing = Motion.Easings.Standard))
             }
         }
     }
 
-    this.offset { IntOffset(offset.value.toInt(), 0) }
+    this.offset { IntOffset(shakeOffset.value.toInt(), 0) }
 }

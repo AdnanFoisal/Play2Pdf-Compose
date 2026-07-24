@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.adnanfoisal.play2pdf.ui.navigation.Play2PdfNavHost
-import com.adnanfoisal.play2pdf.ui.theme.Play2PdfTheme
+import com.adnanfoisal.play2pdf.theme.Play2PdfTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**

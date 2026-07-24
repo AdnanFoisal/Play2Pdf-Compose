@@ -1,13 +1,13 @@
 package com.adnanfoisal.play2pdf.core.designsystem.icons
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.PlayArrow
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bell
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.BrowserUpdated
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -17,12 +17,15 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
-import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Spa
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,7 +81,7 @@ object AppIcons {
     val Settings: ImageVector = Icons.Filled.Settings               // TODO: replace with custom Asset F SVG
     val Search: ImageVector = Icons.Filled.Search                   // TODO: replace with custom Asset F SVG
     val Filter: ImageVector = Icons.Filled.FilterList               // TODO: replace with custom Asset F SVG
-    val Bell: ImageVector = Icons.Filled.Bell                       // TODO: replace with custom Asset F SVG
+    val Bell: ImageVector = Icons.Filled.Notifications              // TODO: replace with custom Asset F SVG
     val Pdf: ImageVector = Icons.Filled.PictureAsPdf                // TODO: replace with custom Asset F SVG
     val More: ImageVector = Icons.Filled.MoreVert                   // TODO: replace with custom Asset F SVG
     val Delete: ImageVector = Icons.Filled.Delete                   // TODO: replace with custom Asset F SVG
@@ -88,12 +91,12 @@ object AppIcons {
     val Wifi: ImageVector = Icons.Filled.Wifi                       // TODO: replace with custom Asset F SVG
     val Cloud: ImageVector = Icons.Filled.Cloud                     // TODO: replace with custom Asset F SVG
     val User: ImageVector = Icons.Filled.Spa                        // TODO: replace with custom Asset F SVG (person silhouette)
-    val Close: ImageVector = Icons.Filled.Close                     // TODO: replace with custom Asset F SVG
+    val Close: ImageVector = Icons.Filled.Clear                     // TODO: replace with custom Asset F SVG
     val Check: ImageVector = Icons.Filled.Check                     // TODO: replace with custom Asset F SVG
     val Error: ImageVector = Icons.Filled.Error                     // TODO: replace with custom Asset F SVG
     val Plus: ImageVector = Icons.Filled.Add                        // TODO: replace with custom Asset F SVG
-    val Play: ImageVector = Icons.AutoMirrored.Filled.PlayArrow     // TODO: replace with custom Asset F SVG
-    val Sparkle: ImageVector = Icons.Filled.Spa                     // TODO: replace with custom Asset F SVG
+    val Play: ImageVector = Icons.Filled.PlayArrow                  // TODO: replace with custom Asset F SVG
+    val Sparkle: ImageVector = Icons.Filled.Star                    // TODO: replace with custom Asset F SVG
     val Inbox: ImageVector = Icons.Filled.Inbox                     // TODO: replace with custom Asset F SVG (empty-state fallback)
     val ArrowForward: ImageVector = Icons.AutoMirrored.Filled.ArrowForward
     val ArrowBack: ImageVector = Icons.AutoMirrored.Filled.ArrowBack

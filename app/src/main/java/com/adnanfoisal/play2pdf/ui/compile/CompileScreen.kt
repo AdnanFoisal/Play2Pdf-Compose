@@ -684,15 +684,20 @@ private fun AdvancedRow(subject: String, onOpen: () -> Unit) {
 
 @Composable
 private fun CompileButton(enabled: Boolean, onClick: () -> Unit) {
+    val gradAlpha = if (enabled) 1f else 0.4f
     val gradBrush = Brush.horizontalGradient(
-        colors = listOf(BrandColors.BrandDeep, BrandColors.BrandMid, BrandColors.BrandGradEnd)
+        colors = listOf(
+            BrandColors.BrandDeep.copy(alpha = gradAlpha),
+            BrandColors.BrandMid.copy(alpha = gradAlpha),
+            BrandColors.BrandGradEnd.copy(alpha = gradAlpha)
+        )
     )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
             .clip(RoundedCornerShape(15.dp))
-            .background(gradBrush.copy(alpha = if (enabled) 1f else 0.4f))
+            .background(gradBrush)
             .shadow(
                 elevation = if (enabled) 12.dp else 0.dp,
                 shape = RoundedCornerShape(15.dp),
@@ -799,7 +804,7 @@ private fun ThemePickerDialog(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .pressScaleClickable { onSelect(theme) }
+                            .pressScaleClickable(onClick = { onSelect(theme) })
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

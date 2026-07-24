@@ -1,6 +1,5 @@
 package com.adnanfoisal.play2pdf.core.designsystem.components
 
-import androidx.compose.animation.AnimatedBorder
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background

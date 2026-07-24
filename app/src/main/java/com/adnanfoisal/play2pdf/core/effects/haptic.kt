@@ -1,12 +1,12 @@
 package com.adnanfoisal.play2pdf.core.effects
 
-import androidx.compose.foundation.LocalHapticFeedback
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import com.adnanfoisal.play2pdf.core.haptics.HapticsManager

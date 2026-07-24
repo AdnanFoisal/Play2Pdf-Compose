@@ -7,6 +7,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -63,8 +65,8 @@ fun ShimmerSkeleton(
     )
 
     val sized = modifier
-        .then(if (width != null) androidx.compose.foundation.layout.width(width) else Modifier)
-        .then(if (height != null) androidx.compose.foundation.layout.height(height) else Modifier)
+        .then(if (width != null) Modifier.width(width) else Modifier)
+        .then(if (height != null) Modifier.height(height) else Modifier)
 
     Box(
         modifier = sized

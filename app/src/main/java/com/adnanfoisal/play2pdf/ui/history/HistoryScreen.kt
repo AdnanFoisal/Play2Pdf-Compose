@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -32,9 +33,12 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -199,8 +204,8 @@ private fun StaggeredHistoryCard(
 ) {
     // Staggered fade-up entrance: delay = index * 80ms + 100ms.
     val delayMs = (index * 80 + 100).coerceAtMost(800)
-    var visible by remember { androidx.compose.runtime.mutableStateOf(false) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(delayMs.toLong())
         visible = true
     }
@@ -365,7 +370,7 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                     left = 40f * sx, top = 47f * sy,
                     right = 50f * sx, bottom = 57f * sy
                 ),
-                startAngle = 0f, sweepAngle = 90f, forceMoveTo = false
+                startAngleDegrees = 0f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             lineTo(6f * sx, 57f * sy)
             // a5 5 0 0 1 -5 -5
@@ -374,7 +379,7 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                     left = 1f * sx, top = 47f * sy,
                     right = 11f * sx, bottom = 57f * sy
                 ),
-                startAngle = 90f, sweepAngle = 90f, forceMoveTo = false
+                startAngleDegrees = 90f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             lineTo(1f * sx, 6f * sy)
             // a5 5 0 0 1 5 -5
@@ -383,7 +388,7 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                     left = 1f * sx, top = 1f * sy,
                     right = 11f * sx, bottom = 11f * sy
                 ),
-                startAngle = 180f, sweepAngle = 90f, forceMoveTo = false
+                startAngleDegrees = 180f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             close()
         }
@@ -406,14 +411,14 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                     left = 31f * sx, top = 7f * sy,
                     right = 39f * sx, bottom = 15f * sy
                 ),
-                startAngle = -90f, sweepAngle = 90f, forceMoveTo = false
+                startAngleDegrees = -90f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             lineTo(45f * sx, 15f * sy)
             close()
         }
         drawPath(path = fold, color = Color.White.copy(alpha = 0.22f))
-        // "PDF" label
-        drawContext.canvas.nativeCanvas.apply {
+        // "PDF" label — drawn via drawIntoCanvas + nativeCanvas for text.
+        drawIntoCanvas { canvas ->
             val paint = android.graphics.Paint().apply {
                 color = android.graphics.Color.WHITE
                 textSize = 12f * sx
@@ -421,7 +426,7 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                 textAlign = android.graphics.Paint.Align.CENTER
                 letterSpacing = 0.06f
             }
-            drawText("PDF", 23f * sx, 39f * sy, paint)
+            canvas.nativeCanvas.drawText("PDF", 23f * sx, 39f * sy, paint)
         }
     }
 }
