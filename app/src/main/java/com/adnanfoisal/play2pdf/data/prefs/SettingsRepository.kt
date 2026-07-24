@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.UserSettings
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -31,7 +32,7 @@ private val Context.prefsDataStore: DataStore<Preferences> by preferencesDataSto
 
 @Singleton
 class SettingsRepository @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private object Keys {
         val YoutubeApiKey = stringPreferencesKey("youtube_api_key")
