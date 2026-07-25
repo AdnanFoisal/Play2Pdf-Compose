@@ -28,19 +28,23 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
+import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
+import com.adnanfoisal.play2pdf.ui.compile.components.PdfThemePreviewRow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +77,7 @@ import com.adnanfoisal.play2pdf.theme.BrandColors
  * into dialogs triggered by "+ Add Playlist" / "+ Add Topic" / "Advanced" /
  * "Change" buttons so no existing input capability is lost.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CompileScreen(
     onCompileRequest: () -> Unit,
@@ -94,15 +99,20 @@ fun CompileScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAdvancedDialog by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize().background(BrandColors.Surface0)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BrandColors.Bg)
+            .homeAtmosphere()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = Spacing.lgMinus)
         ) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.mdMinus))
 
             // Header — greeting + gold crown button
             GreetingHeader(userName = state.userName)
@@ -135,12 +145,21 @@ fun CompileScreen(
             )
             Spacer(Modifier.height(14.dp))
 
-            // PDF theme row
+            // PDF theme section — live previews + selector row
+            SectionLabel(text = "PDF Theme")
+            Spacer(Modifier.height(10.dp))
+            PdfThemePreviewRow(
+                themes = PdfTheme.entries.toList(),
+                selected = state.selectedTheme,
+                onSelect = { viewModel.onEvent(CompileUiEvent.ThemeChanged(it)) },
+                compact = true
+            )
+            Spacer(Modifier.height(12.dp))
             PdfThemeRow(
                 theme = state.selectedTheme,
                 onChange = { showThemeDialog = true }
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(Spacing.mdMinus))
 
             // Advanced toggle — subject/author fields
             AdvancedRow(onOpen = { showAdvancedDialog = true }, subject = state.subject)
@@ -739,8 +758,9 @@ private fun Badge(text: String) {
     }
 }
 
-// --- Dialogs ---
+// --- Bottom Sheets ---
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlaylistUrlDialog(
     initialValue: String,
@@ -748,22 +768,33 @@ private fun PlaylistUrlDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Add Playlist", color = BrandColors.TextPrimary) },
-        text = {
-            OutlinedTextField(
+        sheetState = sheetState,
+        containerColor = BrandColors.Surface1,
+        dragHandle = { SheetHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+                .padding(bottom = Spacing.xl)
+        ) {
+            Text("Add Playlist", color = BrandColors.TextPrimary, style = AppType.title3)
+            Spacer(Modifier.height(Spacing.md))
+            PremiumTextField(
                 value = initialValue,
                 onValueChange = onValueChange,
-                label = { Text("YouTube playlist URL") },
-                singleLine = true
+                label = "YouTube playlist URL",
+                placeholder = "https://youtube.com/playlist?list=\u2026"
             )
-        },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Add") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
+            Spacer(Modifier.height(Spacing.md))
+            PrimaryButton(text = "Add Playlist", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TopicInputDialog(
     initialValue: String,
@@ -771,22 +802,33 @@ private fun TopicInputDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Add Topic", color = BrandColors.TextPrimary) },
-        text = {
-            OutlinedTextField(
+        sheetState = sheetState,
+        containerColor = BrandColors.Surface1,
+        dragHandle = { SheetHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+                .padding(bottom = Spacing.xl)
+        ) {
+            Text("Add Topic", color = BrandColors.TextPrimary, style = AppType.title3)
+            Spacer(Modifier.height(Spacing.md))
+            PremiumTextField(
                 value = initialValue,
                 onValueChange = onValueChange,
-                label = { Text("Topic (comma-separated)") },
-                singleLine = true
+                label = "Topic (comma-separated)",
+                placeholder = "e.g. Photosynthesis, Cell division"
             )
-        },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Add") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
+            Spacer(Modifier.height(Spacing.md))
+            PrimaryButton(text = "Add Topic", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemePickerDialog(
     themes: List<PdfTheme>,
@@ -794,42 +836,31 @@ private fun ThemePickerDialog(
     onSelect: (PdfTheme) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("PDF Theme", color = BrandColors.TextPrimary) },
-        text = {
-            Column {
-                themes.forEach { theme ->
-                    val isSelected = theme == selected
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .pressScaleClickable(onClick = { onSelect(theme) })
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) BrandColors.Brand else Color.Transparent)
-                                .border(1.dp, BrandColors.Brand, CircleShape)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            text = theme.displayName,
-                            color = BrandColors.TextPrimary,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
-    )
+        sheetState = sheetState,
+        containerColor = BrandColors.Surface1,
+        dragHandle = { SheetHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+                .padding(bottom = Spacing.xl)
+        ) {
+            Text("PDF Theme", color = BrandColors.TextPrimary, style = AppType.title3)
+            Spacer(Modifier.height(Spacing.md))
+            PdfThemePreviewRow(
+                themes = themes,
+                selected = selected,
+                onSelect = onSelect,
+                compact = false
+            )
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdvancedDialog(
     subject: String,
@@ -838,26 +869,34 @@ private fun AdvancedDialog(
     onAuthorChange: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Advanced \u2014 Book Details", color = BrandColors.TextPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = subject,
-                    onValueChange = onSubjectChange,
-                    label = { Text("Subject") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = author,
-                    onValueChange = onAuthorChange,
-                    label = { Text("Author") },
-                    singleLine = true
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        sheetState = sheetState,
+        containerColor = BrandColors.Surface1,
+        dragHandle = { SheetHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+                .padding(bottom = Spacing.xl),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md)
+        ) {
+            Text("Book Details", color = BrandColors.TextPrimary, style = AppType.title3)
+            PremiumTextField(value = subject, onValueChange = onSubjectChange, label = "Subject")
+            PremiumTextField(value = author, onValueChange = onAuthorChange, label = "Author")
+            PrimaryButton(text = "Done", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+private fun SheetHandle() {
+    Box(
+        modifier = Modifier
+            .padding(top = Spacing.sm)
+            .size(40.dp, 4.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+            .background(BrandColors.SurfaceBorderStrong)
     )
 }

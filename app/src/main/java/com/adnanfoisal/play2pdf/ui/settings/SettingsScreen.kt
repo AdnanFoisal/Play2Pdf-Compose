@@ -34,13 +34,14 @@ import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
+import com.adnanfoisal.play2pdf.core.effects.settingsAtmosphere
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.tokens.Spacing
 import com.adnanfoisal.play2pdf.theme.AppShape
 import com.adnanfoisal.play2pdf.theme.AppType
 import com.adnanfoisal.play2pdf.theme.BrandColors
+import com.adnanfoisal.play2pdf.ui.compile.components.PdfThemePreviewRow
 import com.adnanfoisal.play2pdf.ui.settings.components.ConnectionStatusIndicator
-import com.adnanfoisal.play2pdf.ui.settings.components.ThemePreviewCard
 
 @Composable
 fun SettingsScreen(
@@ -49,7 +50,12 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val s = state.settings
 
-    Box(modifier = Modifier.fillMaxSize().background(BrandColors.Surface0)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BrandColors.Bg)
+            .settingsAtmosphere()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -124,13 +130,14 @@ fun SettingsScreen(
             }
             Spacer(Modifier.height(Spacing.lg))
 
-            // Section 4: PDF Theme
+            // Section 4: PDF Theme — live in-app page previews
             SectionHeader(stringResource(R.string.settings_section_pdf_theme))
             Spacer(Modifier.height(Spacing.sm))
-            ThemePreviewCard(
+            PdfThemePreviewRow(
                 themes = PdfTheme.entries.toList(),
                 selected = s.selectedTheme,
-                onSelect = viewModel::setTheme
+                onSelect = viewModel::setTheme,
+                compact = false
             )
             Spacer(Modifier.height(Spacing.lg))
 

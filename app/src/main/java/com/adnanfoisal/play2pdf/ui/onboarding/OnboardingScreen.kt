@@ -33,6 +33,7 @@ import com.adnanfoisal.play2pdf.R
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButtonVariant
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
+import com.adnanfoisal.play2pdf.core.effects.homeAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.tokens.Motion
 import com.adnanfoisal.play2pdf.tokens.Spacing
@@ -86,7 +87,8 @@ fun OnboardingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BrandColors.Surface0)
+            .background(BrandColors.Bg)
+            .homeAtmosphere()
     ) {
         // Top-right Skip button
         Text(

@@ -61,12 +61,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adnanfoisal.play2pdf.R
+import com.adnanfoisal.play2pdf.core.designsystem.components.GhostIconButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumCard
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButtonVariant
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
+import com.adnanfoisal.play2pdf.core.effects.compilingAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
+import com.adnanfoisal.play2pdf.tokens.Motion
 import com.adnanfoisal.play2pdf.tokens.Spacing
 import com.adnanfoisal.play2pdf.theme.AppType
 import com.adnanfoisal.play2pdf.theme.BrandColors
@@ -98,7 +101,8 @@ fun CompilingScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BrandColors.Surface0)
+            .background(BrandColors.CompilingBg)
+            .compilingAtmosphere()
             .statusBarsPadding()
     ) {
         when (state.phase) {
@@ -174,22 +178,11 @@ private fun InProgressContent(
     ) {
         // Header — back button + title
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), CircleShape)
-                    .pressScaleClickable(onClick = onCancel),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Go back",
-                    tint = BrandColors.TextPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            GhostIconButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Go back",
+                onClick = onCancel
+            )
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
@@ -266,10 +259,10 @@ private fun ProgressRing(progress: Float) {
     val targetPct = (progress * 100f).coerceIn(0f, 100f)
     val animatedPct by animateFloatAsState(
         targetValue = targetPct,
-        animationSpec = tween(durationMillis = 1700, easing = {
-            val t = it
-            1f - (1f - t) * (1f - t) * (1f - t) // easeOutCubic
-        }),
+        animationSpec = tween(
+            durationMillis = Motion.Durations.Shimmer,
+            easing = Motion.Easings.EmphasizedDecelerate
+        ),
         label = "ringPct"
     )
 
@@ -278,7 +271,10 @@ private fun ProgressRing(progress: Float) {
     val auraScale by infinite.animateFloat(
         initialValue = 0.97f,
         targetValue = 1.03f,
-        animationSpec = infiniteRepeatable(tween(3400, easing = LinearEasing), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(
+            tween(Motion.Durations.AuraBreathe, easing = LinearEasing),
+            RepeatMode.Reverse
+        ),
         label = "auraScale"
     )
 
@@ -435,7 +431,7 @@ private fun StepRow(step: TrackerStep, state: StepState, isLast: Boolean) {
                 val shimmerX by shimmerInfinite.animateFloat(
                     initialValue = 0f,
                     targetValue = 1f,
-                    animationSpec = infiniteRepeatable(tween(1700, easing = LinearEasing)),
+                    animationSpec = infiniteRepeatable(tween(Motion.Durations.Shimmer, easing = LinearEasing)),
                     label = "shimmerX"
                 )
                 Box(
@@ -521,7 +517,7 @@ private fun ProTipCard() {
     val sheenX by infinite.animateFloat(
         initialValue = -0.6f,
         targetValue = 1.6f,
-        animationSpec = infiniteRepeatable(tween(6000, easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween(Motion.Durations.Sheen, easing = LinearEasing)),
         label = "sheenX"
     )
 

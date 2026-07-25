@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.semantics.Role
 import com.adnanfoisal.play2pdf.tokens.Motion
 
 /**
@@ -56,7 +57,9 @@ fun Modifier.pressScale(
 fun Modifier.pressScaleClickable(
     onClick: () -> Unit,
     pressedScale: Float = 0.97f,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    role: Role = Role.Button,
+    onClickLabel: String? = null
 ): Modifier = composed {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -74,6 +77,8 @@ fun Modifier.pressScaleClickable(
             interactionSource = interactionSource,
             indication = LocalIndication.current,
             enabled = enabled,
+            role = role,
+            onClickLabel = onClickLabel,
             onClick = onClick
         )
 }

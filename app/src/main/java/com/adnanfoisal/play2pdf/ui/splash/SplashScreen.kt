@@ -94,7 +94,7 @@ fun SplashScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BrandColors.Surface0),
+            .background(BrandColors.Bg),
         contentAlignment = Alignment.Center
     ) {
         Column(

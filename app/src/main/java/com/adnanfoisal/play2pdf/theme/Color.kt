@@ -34,6 +34,18 @@ object BrandColors {
     val Surface2 = Color(0xFF1b1b27)      // card rows (--card-row)
     val Surface3 = Color(0xFF121829)      // history cards (--card-bg history)
     val SurfaceBorder = Color(0x0FFFFFFF) // rgba(255,255,255,.06) hairlines
+    val SurfaceBorderStrong = Color(0x1FFFFFFF) // rgba(255,255,255,.12) hover/active
+
+    // Unified deep base + per-screen atmospheric glow stops (Part A creative
+    // direction §1.1). Bg is the shared app base; the Glow* colors are used as
+    // radial-gradient stops placed differently per screen so each feels alive
+    // without fragmenting the palette.
+    val Bg = Color(0xFF08080F)            // unified app base (deeper than Surface0)
+    val GlowViolet = Color(0xFF1E1733)    // top radial atmosphere (Home, Settings)
+    val GlowIndigo = Color(0xFF101A2E)    // bottom-right radial (History)
+    val GlowDeep = Color(0xFF0B0A18)      // Compiling mid-stop
+    val CompilingBg = Color(0xFF060509)   // Compiling darkest base
+    val HistoryBg = Color(0xFF05070D)     // History base
 
     // Text — locked from mockups
     val TextPrimary = Color(0xFFF4f4f7)   // --text / --txt

@@ -66,7 +66,11 @@ fun PrimaryButton(
     when (variant) {
         PrimaryButtonVariant.Primary -> {
             bg = Brush.linearGradient(
-                listOf(BrandColors.BrandGradientStart, BrandColors.BrandGradientEnd)
+                listOf(
+                    BrandColors.BrandDeep,
+                    BrandColors.BrandMid,
+                    BrandColors.BrandGradEnd
+                )
             )
             contentColor = BrandColors.PureWhite
             glow = enabled
@@ -78,7 +82,7 @@ fun PrimaryButton(
         }
     }
 
-    val shape = AppShape.medium
+    val shape = AppShape.button
 
     Box(
         modifier = modifier
@@ -128,7 +132,7 @@ fun PrimaryButton(
             Text(
                 text = text,
                 color = contentColor,
-                style = AppType.label.copy(fontSize = 14.sp, letterSpacing = 0.5.sp),
+                style = AppType.button,
                 textAlign = TextAlign.Center
             )
         }

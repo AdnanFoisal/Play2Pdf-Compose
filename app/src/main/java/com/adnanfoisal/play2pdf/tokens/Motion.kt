@@ -29,7 +29,17 @@ object Motion {
         const val Short = 200    // ms — chip add/remove
         const val Medium = 300   // ms — page transition
         const val Long = 500     // ms — modal open
-        const val Splash = 3200  // ms — splash screen hold (matches MP4 animation)
+        const val Splash = 2400  // ms — splash total (trimmed from 3200, no dead hold)
+
+        // Ambient loop durations (slow, calm — never compete with interaction).
+        const val PulseGlow = 2600   // nav active pulse breathe
+        const val Sheen = 6000       // pro-tip sheen sweep
+        const val Shimmer = 1700     // active-step shimmer bar
+        const val ShimmerBar = 3400  // history accent-bar shimmer
+        const val Flicker = 3500     // pro-tip bulb flicker
+        const val CometPulse = 1900  // progress-ring comet
+        const val AuraBreathe = 3400 // compiling aura scale breathe
+        const val AuraSpin = 9000    // compiling aura rotation
     }
 
     object Easings {
@@ -37,6 +47,8 @@ object Motion {
         val Decelerate: Easing = LinearOutSlowInEasing      // entering screen
         val Accelerate: Easing = FastOutLinearInEasing      // exiting screen
         val Emphasized: Easing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+        // Emphasized-decelerate (M3): snappy start, soft settle. Ring pop-in, entrances.
+        val EmphasizedDecelerate: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
     }
 
     object Springs {

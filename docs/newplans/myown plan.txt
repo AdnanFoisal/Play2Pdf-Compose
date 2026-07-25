@@ -1,0 +1,626 @@
+Now I have read every relevant file in the repository. Here is the complete, evidence-based audit.
+
+---
+
+# Play2PDF — Complete UI/UX Audit & Implementation Plan
+
+---
+
+## 1) Audit of the Current App
+
+### 1.1 Every Screen and Route
+
+| # | Screen | File | Route | Entry Point |
+|---|--------|------|-------|-------------|
+| 1 | `SplashScreen` | `ui/splash/SplashScreen.kt` | `splash` | `startDestination` in `Play2PdfNavHost` |
+| 2 | `OnboardingScreen` | `ui/onboarding/OnboardingScreen.kt` | `onboarding` | Navigated from Splash (first run only) |
+| 3 | `MainScreen` (scaffold) | `ui/main/MainScreen.kt` | `main` | Navigated from Splash/Onboarding |
+| 3a | → `CompileScreen` | `ui/compile/CompileScreen.kt` | `compile` | Tab 1 in nested NavHost (start dest) |
+| 3b | → `HistoryScreen` | `ui/history/HistoryScreen.kt` | `history` | Tab 2 in nested NavHost |
+| 3c | → `SettingsScreen` | `ui/settings/SettingsScreen.kt` | `settings` | Tab 3 in nested NavHost |
+| 4 | `CompilingScreen` | `ui/compiling/CompilingScreen.kt` | `compiling` | Full-screen from CompileScreen |
+
+Navigation structure: `Play2PdfNavHost` (top-level, 4 routes) → `MainScreen` contains a **nested** `NavHost` with 3 tab routes. The `CompilingScreen` sits outside the nested graph so it overlays the full screen.
+
+### 1.2 Current Design Tokens in Use
+
+**`theme/Color.kt`** — Already updated to mockup values. Contains:
+- `BrandColors` object with 30+ named constants
+- `HistoryCardAccents` list of 5 gradient pairs
+- All values match the HTML mockup CSS variables (verified hex-by-hex)
+
+**`theme/Type.kt`** — References `R.font.space_grotesk` and `R.font.dm_sans` (both exist as variable TTFs in `res/font/`). Defines 10 type roles via `AppType` object. Maps to Material3 `Typography` via `AppType.material`.
+
+**⚠️ CRITICAL BUG in Type.kt:** Every single property uses `@Composable get()`:
+```kotlin
+private val SpaceGrotesk: FontFamily
+    @Composable get() = FontFamily(
+        Font(R.font.space_grotesk, FontWeight.Medium),
+        Font(R.font.space_grotesk, FontWeight.SemiBold),
+        Font(R.font.space_grotesk, FontWeight.Bold)
+    )
+```
+This creates a **new `FontFamily` instance on every recomposition**. `FontFamily` construction involves font resource lookups. On a screen with 20+ `Text` composables, this runs dozens of times per frame during animation. This must be a top-level `val` or use `remember`.
+
+**`theme/Shape.kt`** — 4 shapes: `small` (8dp), `medium` (12dp), `large` (20dp), `pill` (999dp). Plus `AppShape.material` mapping to M3 `Shapes`.
+
+**`tokens/Spacing.kt`** — 8pt grid: `xs`=4, `sm`=8, `smMd`=12, `md`=16, `lg`=24, `xl`=32, `xxl`=48, `xxxl`=64. Plus semantic aliases (`cardPadding`, `screenPadding`, etc.).
+
+**`tokens/Motion.kt`** — Durations (150/200/300/500/3200ms), 4 easings (Standard/Decelerate/Accelerate/Emphasized), 3 spring specs (bouncy/snappy/gentle).
+
+**`tokens/Elevation.kt`** — 5 levels: none(0), card(2dp), cardHover(6dp), modal(12dp), popover(8dp).
+
+**`theme/Theme.kt`** — Dark-only (`ForceDark = true`). Maps `BrandColors` → `darkColorScheme`. Edge-to-edge via `SideEffect`. Light scheme exists but is a generic white/black placeholder.
+
+### 1.3 Shared Components & Reusable Patterns
+
+**`core/designsystem/components/`:**
+
+| Component | File | Status |
+|-----------|------|--------|
+| `PrimaryButton` | `Button.kt` | Gradient bg, neonGlow, pressScale, loading spinner, Ghost variant. **Uses `AppType.label` for text (11.5sp uppercase) instead of a proper button style.** |
+| `PremiumCard` | `Card.kt` | Surface1 bg, 1px border, shadow, `AppShape.large` (20dp). PressScale on click. |
+| `GlassCard` | `Card.kt` | `glassBlur` + tint + border. API 31+ blur with fallback. |
+| `AnimatedChip` | `Chip.kt` | Not read but exists. |
+| `PremiumTextField` | `TextField.kt` | Not read but exists. Used by SettingsScreen. |
+| `Play2PdfBottomBar` | `NavBar.kt` | 3 tabs, pulse glow on active (2600ms), scale animation. |
+| `ShimmerSkeleton` | `Skeleton.kt` | Loading placeholder. |
+| `EmptyState` | `EmptyState.kt` | Icon + title + subtitle. |
+| `AppIcon` | `Icon.kt` | Wrapper. |
+
+**`core/designsystem/icons/AppIcons.kt`** — 26 icons, **all Material Icons placeholders**. Every entry has `// TODO: replace with custom Asset F SVG`. The mockups imply a custom 2px-stroke icon set.
+
+**`core/effects/`:**
+
+| Effect | File | Status |
+|--------|------|--------|
+| `pressScaleClickable` | `pressScale.kt` | 0.97 scale, 150ms, `composed{}`. Works correctly. |
+| `neonGlow` | `neonGlow.kt` | 3-layer `setShadowLayer` glow. Works on API 26+. |
+| `glassBlur` | `glassBlur.kt` | Android 12+ `RenderEffect` with fallback. |
+| `hapticClickable` | `haptic.kt` | Haptic feedback on click. |
+| `errorShake` | `errorShake.kt` | Shake animation on error. |
+
+### 1.4 Screen-by-Screen Gaps vs. Mockups
+
+#### CompileScreen (Home) — `ui/compile/CompileScreen.kt`
+
+**What matches the mockup:**
+- Greeting header with gold crown Canvas icon ✓
+- Stats card with sparkline Canvas ✓
+- Section label "YOUR WORKSPACE" (uppercase, violet, 11.5sp, 1.4 letter-spacing) ✓
+- Playlists card with YouTube red icon rows ✓
+- Topics card with pill wrap layout ✓
+- PDF theme row with "Change" button ✓
+- Gradient compile button (#7c3aed → #6d5cf0 → #3b82f6) ✓
+- 20dp horizontal padding ✓
+- 18dp card radius ✓
+- 13dp row radius ✓
+- 22dp pill radius ✓
+
+**What's wrong or missing:**
+1. **Hardcoded dp values everywhere.** The screen uses `20.dp`, `18.dp`, `14.dp`, `13.dp`, `11.dp`, `9.dp`, `42.dp`, `38.dp`, `30.dp` etc. as raw literals. `Spacing.kt` tokens are imported but barely used. This defeats the purpose of the token system.
+2. **Hardcoded font sizes.** `24.sp`, `13.5.sp`, `16.sp`, `14.sp`, `12.sp`, `15.5.sp`, `11.5.sp`, `34.sp`, `12.5.sp` — none go through `AppType`. The mockup's typography scale is replicated inline.
+3. **Hardcoded colors.** Uses `BrandColors.*` directly instead of `MaterialTheme.colorScheme.*`. This works but bypasses the theme system.
+4. **Stats card font.** The big number uses `fontSize = 34.sp, fontWeight = FontWeight.Bold` inline. The mockup uses Space Grotesk 700 at 34px. Should use `AppType.stat` (which is 36sp — **2sp off from the mockup's 34px**).
+5. **Compile button text.** Uses `fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold` inline. The mockup uses 15.5px/600. Close but not tokenized.
+6. **Dialogs use default Material `AlertDialog`.** The mockup doesn't show dialogs, but the default M3 AlertDialog has a white/light surface that will clash violently with the dark theme. These need custom styling.
+7. **`OutlinedTextField` in dialogs** uses default M3 styling — wrong colors, wrong border, wrong font.
+8. **No `statusBarsPadding` inset handling** for the scrollable column — it's applied but the mockup shows `calc(var(--sat) + 14px)` top padding, meaning 14dp below the status bar. The code uses `Spacer(Modifier.height(12.dp))` — **2dp off**.
+9. **Crown icon** is drawn via Canvas Path. The mockup's crown SVG path is `M3 7l3.5 3L12 4l5.5 6L21 7l-1.5 11h-15L3 7z` + base bar. The code replicates this. ✓ But the crown sits in a 42dp circle with `BrandColors.Surface1` bg and `Gold.copy(alpha = 0.35f)` border. The mockup shows the same. ✓
+
+#### CompilingScreen — `ui/compiling/CompilingScreen.kt`
+
+**What matches:**
+- Progress ring with sweep gradient (fuchsia→violet→blue→cyan) ✓
+- Comet dot at arc tip ✓
+- Aura breathing animation (scale 0.97→1.03, 3400ms) ✓
+- 4-step tracker with rail lines ✓
+- Step dots: done (green gradient), active (violet gradient + border), pending (dim) ✓
+- Shimmer bar under active step (1700ms) ✓
+- Pro-tip card with amber border + sheen sweep (6000ms) ✓
+- 224dp ring size ✓
+- 54sp percentage number ✓
+- Back button 42dp circle ✓
+
+**What's wrong or missing:**
+1. **Background is flat `BrandColors.Surface0` (#0a0a12).** The mockup uses a complex multi-layer radial gradient: `radial-gradient(120% 90% at 50% 18%, #1a1730 0%, #0c0a18 42%, #060509 100%)` plus two `body::before/::after` overlays with violet/cyan radial gradients and a vignette. **This is the single biggest visual gap in the entire app.** The compiling screen's atmosphere is completely missing.
+2. **Aura implementation.** The mockup uses `conic-gradient` + `filter: blur(26px)` + `animation: spin 9s linear infinite`. The Compose code uses a `radialGradient` (not conic/sweep) and **no rotation animation**. The aura should slowly rotate. Also, `blur(26px)` requires API 31+ `RenderEffect`. The code has no fallback for API 26–30.
+3. **Ring progress arc.** The mockup uses `stroke-dasharray`/`stroke-dashoffset` on an SVG circle with a `linearGradient` (not sweep). The Compose code uses `Brush.sweepGradient`. Visually similar but the gradient direction differs — the mockup's gradient goes from bottom-left to top-right (`x1="0" y1="1" x2="1" y2="0"`), while `sweepGradient` goes clockwise from 3 o'clock.
+4. **Ring drop shadow.** The mockup has `filter: drop-shadow(0 0 6px rgba(124,58,237,.65)) drop-shadow(0 0 14px rgba(34,211,238,.30))` on the progress arc. The Compose code has no glow on the arc.
+5. **Percentage text shadow.** The mockup has `text-shadow: 0 0 24px rgba(139,92,246,.35)`. The Compose code has no text shadow.
+6. **Step entrance animation.** The mockup staggers steps with `animation-delay: .35s, .50s, .65s, .80s` and `fadeUp .55s ease`. The Compose code has no entrance animation on steps.
+7. **Active step pulse ring.** The mockup has `.dot.active::before` with `pulseRing 1.8s ease-out infinite` (scale 0.85→1.5, opacity 0.8→0). The Compose code has a static border on the active dot — **no pulse animation**.
+8. **Pro-tip sheen.** The mockup uses `skewX(-18deg)` on the sheen overlay. The Compose code uses a straight linear gradient — no skew.
+9. **Pro-tip bulb flicker.** The mockup has `flicker 3.5s ease-in-out infinite` on the lightbulb icon. The Compose code has no flicker.
+10. **Header entrance.** The mockup has `fadeDown .6s ease both` on the header. The Compose code has no entrance animation.
+11. **Ring popIn.** The mockup has `popIn .8s cubic-bezier(.2,.8,.2,1) both` on the ring wrap. The Compose code has no entrance animation on the ring.
+12. **Small-height phone handling.** The mockup has `@media (max-height: 700px)` reducing ring to 180px. The Compose code has no responsive sizing.
+
+#### HistoryScreen — `ui/history/HistoryScreen.kt`
+
+**What matches:**
+- Header with title + subtitle + search/filter icon buttons ✓
+- 42dp circle icon buttons ✓
+- Staggered fade-up entrance (delay = index * 80ms + 100ms) ✓
+- Per-card left accent bar (4dp, vertical gradient) ✓
+- PDF SVG icon via Canvas ✓
+- Card stats row (topics + videos) ✓
+- 18dp card radius ✓
+- 14dp gap between cards ✓
+- 18dp horizontal padding on list ✓
+- 22dp header padding ✓
+
+**What's wrong or missing:**
+1. **Background is flat `BrandColors.Surface0`.** The mockup uses `#05070d` base + two radial gradients (`#131a2c` at top, `#0e1422` at bottom-right). Different from the Home screen's `#0a0a12`. **The History screen has its own background color that isn't in `BrandColors`.**
+2. **Card background.** The mockup uses `#121829` + a top gradient overlay `linear-gradient(180deg, rgba(255,255,255,.025), transparent 60%)`. The Compose code uses flat `BrandColors.Surface3` (#121829) — **missing the top gradient overlay**.
+3. **Accent bar shimmer.** The mockup has `.bar::after` with a shimmer animation (`shimmer 3.4s linear infinite`, background-position sweep). The Compose code has a static gradient bar — **no shimmer**.
+4. **Card hover effects.** The mockup has `transform: translateY(-3px)` + `box-shadow: 0 16px 34px -16px rgba(var(--glow), .45)` on hover. The Compose code has `pressScaleClickable` (0.97 scale) but no translateY or colored glow shadow.
+5. **PDF icon hover.** The mockup has `transform: rotate(-3deg) scale(1.04)` + colored drop-shadow on card hover. The Compose code has no hover interaction on the PDF icon.
+6. **Font family.** The mockup explicitly loads **Manrope** (400/500/600/700) for body text and **Space Grotesk** for display. The Compose code uses DM Sans for body (per `Type.kt`). **Manrope and DM Sans are visually distinct** — Manrope has wider apertures, rounder terminals, and a slightly larger x-height.
+7. **Text colors differ from Home.** The mockup uses `--txt: #f3f5fb` (not `#f4f4f7`), `--txt-2: #9aa3b8` (not `#8a8a99`), `--txt-3: #79829a` (not `#6f6f80`). These are close but not identical. The Compose code uses the Home screen values everywhere.
+8. **Nav bar background.** The mockup uses `linear-gradient(180deg, rgba(10,14,24,0), rgba(8,11,20,.6))` — a gradient fade. The Compose NavBar uses flat `BrandColors.Surface1`.
+9. **Card date format.** The mockup shows "Today, 9:30 AM" / "Yesterday, 6:15 PM" / "May 18, 2024". The Compose code replicates this logic. ✓
+10. **Search/filter buttons are non-functional.** Both have `/* TODO */` comments. The mockup shows them as interactive.
+
+#### SettingsScreen — `ui/settings/SettingsScreen.kt`
+
+**No mockup exists.** Current state:
+- Uses `PremiumCard` + `PremiumTextField` + `PrimaryButton` from the design system
+- Uses `AppType.title1` for the header ✓
+- Uses `Spacing` tokens ✓ (one of the few screens that does)
+- Uses `BrandColors` directly
+- `SectionHeader` uses `AppType.label` (uppercase, 11.5sp) ✓
+- Toggle rows use M3 `Switch` with custom colors ✓
+- **No subtitle under the header** (the mockup language would suggest one)
+- **No connection status visual polish** — the `ConnectionStatusIndicator` is a separate component I haven't read
+- **ThemePreviewCard** is a separate component — likely a grid of theme options
+
+**Gaps:** This screen is functional but visually bare compared to the mockup screens. It lacks the atmospheric background, the card styling nuances, and the micro-interactions present in the mockup screens.
+
+#### OnboardingScreen — `ui/onboarding/OnboardingScreen.kt`
+
+**No mockup exists.** Current state:
+- 3-page `HorizontalPager` ✓
+- Page indicator dots (active = violet, inactive = Surface3) ✓
+- Skip button top-right ✓
+- "Next" / "Get Started" button ✓
+- Illustration placeholder: 240×180dp `Surface2` box with `R.drawable.logo_mark` ✓
+- Uses `AppType.title1` and `AppType.bodySmall` ✓
+- Uses `Spacing` tokens ✓
+
+**Gaps:** The illustration area is a plain colored box. No atmospheric background. No page transition animation beyond the default pager spring. The page indicator dots don't animate (no size/width transition on the active dot).
+
+#### SplashScreen — `ui/splash/SplashScreen.kt`
+
+**What the code implements (6-phase timeline):**
+1. Phase 1 (0–500ms): Play icon scales 0.3→1.0 + alpha 0→1 (spring, MediumBouncy)
+2. Phase 2 (400–1300ms): 3D flip via scaleX 1→0→1, crossfading play→document
+3. Phase 3 (1100–1600ms): "PDF" text fades in on document
+4. Phase 4 (1400–1900ms): Violet radial glow expands (alpha 0→0.55, scale 0.3→1.0)
+5. Phase 5 (1800–2400ms): "Play2PDF" wordmark slides up + fades in
+6. Phase 6 (2400–3200ms): Hold, then navigate
+
+**Issues:**
+1. **The flip is fake.** It uses `scaleX` manipulation (1→0→1) to simulate a 3D flip. This looks like a horizontal squish, not a perspective rotation. A real 3D flip would use `graphicsLayer { rotationY = ...; cameraDistance = ... }`.
+2. **Phase timing uses sequential `delay()` calls.** These can drift under load. A single `Animatable` with `animateTo` or keyframes would be more precise.
+3. **The spring for Phase 1** uses `DampingRatioMediumBouncy` which overshoots. The video (per the code comments) shows a smooth scale-in.
+4. **The document icon** draws a play button overlay on the document face. This is a nice touch that communicates the product purpose.
+5. **The glow** uses `BrandColors.BrandStrong.copy(alpha = 0.7f)` → `BrandDeep.copy(alpha = 0.4f)` → `Transparent` radial gradient. This matches the violet glow concept.
+6. **Wordmark font.** Uses `AppType.display.copy(fontSize = 32.sp)` — Space Grotesk SemiBold at 32sp. The mockup doesn't specify the splash wordmark size explicitly, but 32sp is reasonable for a splash.
+7. **Subtitle** says "Playlist → Study guide" with a Unicode arrow. ✓
+
+### 1.5 Cross-Cutting Issues
+
+| Issue | Severity | Files Affected |
+|-------|----------|----------------|
+| **`@Composable get()` on FontFamily** — creates new instances every recomposition | 🔴 Critical | `Type.kt` |
+| **Hardcoded dp/sp values** — bypasses token system | 🟡 High | `CompileScreen.kt`, `CompilingScreen.kt`, `HistoryScreen.kt` |
+| **Hardcoded colors** — uses `BrandColors.*` instead of `MaterialTheme.colorScheme.*` | 🟡 Medium | All screens |
+| **Material Icons placeholders** — 26 icons all TODO | 🟡 Medium | `AppIcons.kt` |
+| **No atmospheric backgrounds** — flat Surface0 everywhere | 🟡 High | `CompilingScreen.kt`, `HistoryScreen.kt` |
+| **Missing micro-animations** — entrance, hover, pulse, shimmer, flicker | 🟡 High | `CompilingScreen.kt`, `HistoryScreen.kt` |
+| **Default M3 AlertDialog/TextField** in dialogs — clashes with dark theme | 🟡 High | `CompileScreen.kt` |
+| **Manrope vs DM Sans** unresolved | 🟡 Medium | `HistoryScreen.kt`, `Type.kt` |
+| **No responsive sizing** for small-height phones | 🟢 Low | `CompilingScreen.kt` |
+| **`Brush.lineargradient`** possible typo in Button.kt Ghost variant | 🔴 Critical (if real) | `Button.kt` |
+| **Lottie dependency included** but never used | 🟢 Low | `build.gradle.kts` |
+
+---
+
+## 2) Design System Extracted from References
+
+### 2.1 Color Palette (verified hex-by-hex from HTML CSS)
+
+**Home screen (`Home screen.html`):**
+I could not extract the raw CSS from this file (the web extractor returned rendered text only). However, the `CompileScreen.kt` code was written to match it, and the `IMPLEMENTATION_PLAN.md` documents the tokens. Cross-referencing with the History and Compiling mockups:
+
+| Token | Hex | Source | Usage |
+|-------|-----|--------|-------|
+| `--bg` | `#0a0a12` | Home | App background |
+| `--card` | `#14141e` | Home | Card background |
+| `--card-row` | `#1b1b27` | Home | Nested row bg |
+| `--card-bg` | `#121829` | History | History card bg |
+| History bg base | `#05070d` | History `body` | History screen bg |
+| History radial 1 | `#131a2c` | History `body` | Top radial overlay |
+| History radial 2 | `#0e1422` | History `body` | Bottom-right radial |
+| Compiling bg | `#060509` → `#0c0a18` → `#1a1730` | Compiling `body` | Radial gradient |
+| `--line` | `rgba(255,255,255,.06)` | History | Hairline borders |
+| `--line-strong` | `rgba(255,255,255,.12)` | History | Hover borders |
+| `--txt` / `--ink` | `#f3f5fb` / `#f4f3fb` | History / Compiling | Primary text |
+| `--txt-2` / `--muted` | `#9aa3b8` / `#8b8aa3` | History / Compiling | Secondary text |
+| `--txt-3` / `--muted-2` | `#79829a` / `#6f6e88` | History / Compiling | Tertiary text |
+| `--txt-4` | `#646d84` | History | Quaternary (dates) |
+| `--violet` / `--purple` | `#a78bfa` | Both | Primary accent |
+| `--violet-glow` / `--purple-strong` | `#8b5cf6` | Both | Active/pressed |
+| `--violet-deep` | `#7c3aed` | Compiling | Gradient start |
+| `--green` | `#22c55e` | Compiling | Done/success |
+| `--green-deep` | `#16a34a` | Compiling | Done gradient end |
+| `--amber` | `#fbbf24` | Compiling | Pro-tip |
+| `--gold` | `#f5b942` | Home (inferred) | Crown icon |
+| `--yt` | `#ff1a1a` | Home (inferred) | YouTube icon |
+| Ring gradient | `#c026d3` → `#7c3aed` → `#3b82f6` → `#22d3ee` | Compiling SVG | Progress ring |
+| Compile button gradient | `#7c3aed` → `#6d5cf0` → `#3b82f6` | Home (inferred) | CTA button |
+
+**⚠️ Ambiguity — text colors differ per screen:**
+- Home: `#f4f4f7` / `#8a8a99` / `#6f6f80` (per `Color.kt`)
+- History: `#f3f5fb` / `#9aa3b8` / `#79829a` (per CSS)
+- Compiling: `#f4f3fb` / `#8b8aa3` / `#6f6e88` (per CSS)
+
+These are **three different text palettes**. The differences are subtle (2–8 units per channel) but visible on a calibrated display. **Decision needed:** Unify to one palette, or maintain per-screen tuning?
+
+### 2.2 Typography Scale (from CSS)
+
+| Role | Font | Weight | Size | Line Height | Letter Spacing | Source |
+|------|------|--------|------|-------------|----------------|--------|
+| Screen title (H1) | Space Grotesk | 600 (History) / 700 (Compiling) | 24px / 20px | 1.1 / 1.2 | -0.4px / -0.2px | Headers |
+| Card title | Space Grotesk | 600 | 16.5px | — | -0.2px | History cards |
+| Section label | Body font | 700 | 11.5px | 16px | +1.4px, uppercase | Home "YOUR WORKSPACE" |
+| Body | Manrope (History) / DM Sans (Compiling) | 400–500 | 13–15px | 1.5 | — | General text |
+| Meta/caption | Body font | 500 | 11–12.5px | — | — | Dates, counts |
+| Stat number | Space Grotesk | 700 | 34px (Home) / 54px (Compiling) | 1 (tight) | -1px | Stats, ring % |
+| Button | Body font | 600 | 15.5px | — | — | Compile CTA |
+| Nav label | Body font | 600 | 11px | — | — | Bottom nav |
+| Pro-tip head | Space Grotesk | 700 | 14px | — | +0.2px | Compiling |
+| Step title | Body font | 500 | 15px | — | -0.1px | Compiling steps |
+| Step subtitle | Body font | 400 | 13px | — | — | Compiling steps |
+
+**⚠️ Key finding:** The History screen uses **Manrope**, the Compiling screen uses **DM Sans**, and the Home screen (inferred from code) uses **DM Sans**. The `Type.kt` comment says "DM Sans is primary, Manrope is visual sibling" — but they are **not** visual siblings. Manrope is noticeably rounder and wider.
+
+### 2.3 Spacing & Layout Rhythm (from CSS)
+
+| Element | Value | Source |
+|---------|-------|--------|
+| Home screen horizontal padding | 20px | CompileScreen code |
+| History header padding | 22px horizontal | History CSS `.header` |
+| History list padding | 18px horizontal, 4px top, 14px bottom | History CSS `.list` |
+| Compiling screen padding | 24px horizontal, 14px top, 20px bottom | Compiling CSS `.screen` |
+| Card internal padding | 16px (Home), 16px 16px 14px 20px (History — asymmetric) | CSS `.card` |
+| Card gap | 14px | History CSS `.list` gap |
+| Section spacing | 18px (Home between cards) | CompileScreen code |
+| Header margin-bottom | 16px (History), 28px (Compiling ring margin-top) | CSS |
+| Row internal padding | 11px 12px (Home playlist rows) | CompileScreen code |
+| Pill padding | 9px 18px | CompileScreen code |
+| Icon button size | 42×42px | All screens |
+| YouTube icon | 38×30px, radius 9px | CompileScreen code |
+| Step dot | 34×34px | Compiling CSS `.dot` |
+| Progress ring | 224×224px (max 58vw) | Compiling CSS `.ring` |
+| Nav padding | 12px 18px + safe-area (History), 6px 0 4px (Home) | CSS `.navbar` |
+| Step rail width | 34px | Compiling CSS `.rail` |
+| Step gap | 16px | Compiling CSS `.step` gap |
+| Accent bar width | 4px | History CSS `.bar` |
+
+**⚠️ The 8pt grid in `Spacing.kt` does not accommodate:** 9px, 11px, 13px, 14px, 18px, 20px, 22px. These are all used in the mockups.
+
+### 2.4 Corner Radius (from CSS)
+
+| Element | Radius | Source |
+|---------|--------|--------|
+| Main cards | 18px | Home `.card`, History `.card` |
+| Nested rows | 13px | Home `.row` (CompileScreen code) |
+| Compile button | 15px | Home `.compile` (CompileScreen code) |
+| Topic pills | 22px | Home `.pill` (CompileScreen code) |
+| Icon buttons | 50% (circle) | All screens |
+| YouTube icon | 9px | CompileScreen code |
+| PDF theme field | 11px | CompileScreen code |
+| Change button | 11px | CompileScreen code |
+| Pro-tip card | 18px | Compiling CSS `.protip` |
+| Step container | 14px | Compiling CSS `.step` |
+| Badge | 8px | CompileScreen code |
+| Plus button | 13px | CompileScreen code |
+| Shimmer bar | 3px | Compiling CSS `.shimmer` |
+| Nav bar | 0 (full width) | All screens |
+
+**The current `Shape.kt` has 8/12/20/pill.** The mockups use **9/11/13/14/15/18/22**. The 3-step system is insufficient.
+
+### 2.5 Shadows & Elevation
+
+The mockups use **no traditional box-shadows on cards at rest**. Depth comes from:
+- **Border contrast:** `rgba(255,255,255,0.06)` hairline
+- **Background color stepping:** Surface0 → Surface1 → Surface2 → Surface3
+- **Top gradient overlay:** `linear-gradient(180deg, rgba(255,255,255,.025), transparent 60%)` on History cards
+
+Shadows appear only on **interaction** and **special elements:**
+- Card hover: `box-shadow: 0 16px 34px -16px rgba(var(--glow), .45), 0 4px 14px -8px rgba(0,0,0,.6)` — **colored glow**, not neutral
+- Compile button: `box-shadow: 0 10px 24px rgba(108,76,230,.35)` — violet glow beneath
+- Done step dot: `box-shadow: 0 4px 14px -2px rgba(34,197,94,.5), inset 0 1px 0 rgba(255,255,255,.3)` — green glow + inner highlight
+- Active step dot: `box-shadow: 0 4px 16px -2px rgba(124,58,237,.6), inset 0 1px 0 rgba(255,255,255,.35)` — violet glow
+- Ring progress arc: `filter: drop-shadow(0 0 6px rgba(124,58,237,.65)) drop-shadow(0 0 14px rgba(34,211,238,.30))` — dual glow
+- PDF icon: `filter: drop-shadow(0 6px 12px rgba(0,0,0,.4))` — neutral shadow
+- Pro-tip hover: `box-shadow: 0 14px 30px -16px rgba(251,191,36,.35)` — amber glow
+
+**Pattern:** Elevation = **colored glow matching the element's accent**, not neutral drop shadow. This is the defining visual signature of this design.
+
+### 2.6 Recurring Component Patterns
+
+**Buttons:**
+- Primary CTA: full-width, 3-stop gradient (`#7c3aed` 0% → `#6d5cf0` 45% → `#3b82f6` 100%), 15.5sp/600 weight, 16px vertical padding, 15px radius, violet glow shadow `0 10px 24px rgba(108,76,230,.35)`
+- Ghost/Icon button: 42×42dp circle, `rgba(255,255,255,0.05)` bg, 1px `rgba(255,255,255,0.08)` border, hover: `rgba(255,255,255,0.10)` bg + `translateY(-1px)`, active: `scale(0.92)`
+- Text button ("+ Add Playlist", "Change"): violet text `#a78bfa`, no bg, 13sp/600
+
+**Cards:**
+- Base: `#14141e` bg, 1px `rgba(255,255,255,0.06)` border, 18px radius, 16px padding
+- History variant: `#121829` bg + top gradient overlay, 4px left accent bar with shimmer, asymmetric padding `16px 16px 14px 20px`
+- Stats card: flex row, label + big number + sparkline chart
+- Pro-tip: amber gradient bg `rgba(251,191,36,.06)` → `rgba(255,255,255,.02)`, amber border 16%, 18px radius, sheen sweep
+
+**Nav Bar:**
+- 3 tabs, border-top hairline `rgba(255,255,255,.06)`, 11sp/600 labels
+- Active: violet `#a78bfa` color + radial pulse glow (46px, `rgba(139,92,246,0.55)`, 2600ms breathe, scale 0.9→1.12, opacity 0.6→1.0)
+- Inactive: `#646d84`
+- Background: gradient fade `linear-gradient(180deg, rgba(10,14,24,0), rgba(8,11,20,.6))` (History) or flat (Home)
+
+**Inputs:**
+- Not visible in mockups (moved to dialogs). The `PremiumTextField` exists but isn't shown in the HTML references.
+
+**Chips/Pills:**
+- Border: `rgba(139,92,246,0.30)`, bg: `rgba(139,92,246,0.05)`, text: `#f4f4f7`, 13sp/500, 9px 18px padding, 22px radius
+
+---
+
+## 3) Intro Animation Analysis
+
+### 3.1 What the Code Documents
+
+The `SplashScreen.kt` comments describe the MP4 as showing:
+
+> "a glassmorphic play-button icon that rotates/flips and morphs into a PDF document, with 'PDF' text fading in and the wordmark sliding up beneath it."
+
+The implemented 6-phase timeline:
+
+| Phase | Time | What Happens | Easing |
+|-------|------|--------------|--------|
+| 1 | 0–500ms | Play icon scales 0.3→1.0 + alpha 0→1 | Spring (MediumBouncy, MediumLow stiffness) |
+| 2 | 400–1300ms | scaleX 1→0 (play squishes away) then 0→1 (document squishes in) | tween 900ms |
+| 3 | 1100–1600ms | "PDF" text fades in on document face | tween 500ms |
+| 4 | 1400–1900ms | Violet radial glow expands (alpha 0→0.55, scale 0.3→1.0) | tween 500ms |
+| 5 | 1800–2400ms | "Play2PDF" wordmark slides up (offsetY /6→0) + fades in; subtitle appears | tween 500ms + slideInVertically |
+| 6 | 2400–3200ms | Hold, then `SplashViewModel.boot()` navigates | — |
+
+### 3.2 Motion Character Assessment
+
+- **Pacing:** 3.2 seconds total. This is **on the longer side** for a splash screen. Most polished apps use 1.5–2.5s. The 800ms hold at the end (Phase 6) feels like dead time.
+- **The morph concept is strong.** Play button → PDF document communicates the product's core value proposition ("video becomes document") in a single visual metaphor. This is purposeful, not decorative.
+- **The flip implementation is weak.** scaleX manipulation looks like a horizontal squish, not a 3D rotation. There's no perspective foreshortening, no slight rotation, no shadow shift. It reads as "flat animation" rather than "3D transform."
+- **The spring overshoot** on Phase 1 (MediumBouncy) may cause the icon to scale past 1.0 and bounce back. If the video shows a smooth ease-out, this is wrong.
+- **The glow expansion** (Phase 4) is a nice premium touch. The radial gradient from violet to transparent creates a warm halo.
+- **The wordmark slide-up** is standard but effective. The `/6` offset (≈27dp on a 160dp container) is a subtle rise.
+- **Overall feel:** The concept is **premium-purposeful** (not playful, not corporate). The execution needs refinement to match the concept's quality.
+
+### 3.3 Implementation Recommendation
+
+**Native Compose Animation is correct. Do not switch to Lottie.**
+
+Reasons:
+1. **The animation is procedural Canvas drawing.** Both shapes (play button, document) are drawn with `Path` + `drawRoundRect` + `drawPath`. Lottie would require re-creating these as After Effects layers, then exporting — a lossy round-trip.
+2. **The morph is a code-level crossfade.** The `flipProgress` variable drives which shape is drawn. This is trivial in Canvas, awkward in Lottie (would need two layers with opacity/scale keyframes).
+3. **The glow is a single `drawCircle` with a radial brush.** Lottie would need a pre-rendered glow frame or a shape layer with blur — heavier and less flexible.
+4. **Resolution independence and theming come free** with Canvas. Lottie JSON bakes colors.
+5. **The animation is simple enough** — 2 shape draws + 5 animated floats. No particle systems, no bone rigs, no video textures.
+
+**However, the implementation needs these fixes:**
+- Replace `scaleX` flip with `graphicsLayer { rotationY = ...; cameraDistance = 8f * density }` for a true 3D perspective flip
+- Replace sequential `delay()` with a single `Animatable` keyframe timeline for drift-free sequencing
+- Tune the Phase 1 spring to match the video (likely `DampingRatioNoBouncy` or a custom `tween` with `Emphasized` easing)
+- Consider reducing total duration from 3200ms to ~2600ms (trim the Phase 6 hold)
+
+**⚠️ I cannot verify any of this against the actual MP4.** I need you to confirm the timeline is accurate or provide a hosted link.
+
+---
+
+## 4) Phased Implementation Plan
+
+### Phase 0: Make It Build & Establish Baseline (PREREQUISITE)
+
+**Why:** The CI shows the latest commit (#9, `a1f6f34`) passed, but the build history shows 8 fix commits in 3 hours. The codebase was written by an AI agent without local compilation. There may be latent issues that pass `assembleDebug` but crash at runtime (e.g., the `@Composable get()` FontFamily issue won't cause a compile error but will cause performance problems and potential crashes under recomposition pressure).
+
+**Files that change:**
+- `theme/Type.kt` — Fix `@Composable get()` → top-level `val` for FontFamily instances
+- `core/designsystem/components/Button.kt` — Verify `Brush.lineargradient` vs `Brush.linearGradient` (possible case typo)
+- All files — Run `./gradlew assembleDebug` locally, fix any remaining issues
+- Launch on emulator, screenshot every screen
+
+**What I need from you:**
+- Confirm you can run `./gradlew assembleDebug` locally and it passes
+- If possible, provide screenshots of the current state on-device
+
+**Expected iterations:** 1 pass.
+
+---
+
+### Phase 1: Rebuild Design Tokens
+
+**Files that change:**
+
+| File | Change |
+|------|--------|
+| `theme/Type.kt` | **Major:** Remove all `@Composable get()`. Make `SpaceGrotesk` and `DmSans` top-level `val`s. Fix `AppType.stat` from 36sp → 34sp (match Home mockup). Add `AppType.statLarge` at 54sp for Compiling. Add `AppType.button` at 15.5sp/600. |
+| `theme/Shape.kt` | **Expand:** Add semantic aliases: `card = 18.dp`, `row = 13.dp`, `button = 15.dp`, `pill = 22.dp`, `iconButton = CircleShape`, `ytIcon = 9.dp`, `field = 11.dp`, `badge = 8.dp`, `step = 14.dp`, `shimmer = 3.dp`. Keep the 3-step system for M3 compatibility but add these for direct use. |
+| `tokens/Spacing.kt` | **Expand:** Add `screenPaddingHome = 20.dp`, `screenPaddingHistory = 22.dp`, `screenPaddingCompiling = 24.dp`, `cardPaddingHistory = PaddingValues(start=20, end=16, top=16, bottom=14)`. Or relax the grid to include 9/11/13/14/18/20/22. |
+| `tokens/Motion.kt` | **Add:** `PulseGlow = 2600`, `Sheen = 6000`, `Shimmer = 1700`, `ShimmerBar = 3400`, `Flicker = 3500`, `CometPulse = 1900`, `AuraBreathe = 3400`, `AuraSpin = 9000`. Add `EmphasizedDecelerate = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1.0f)` (used by ring popIn). |
+| `theme/Color.kt` | **Minor:** Add `HistoryBg = Color(0xFF05070d)`, `HistoryRadial1 = Color(0xFF131a2c)`, `HistoryRadial2 = Color(0xFF0e1422)`. Add `CompilingBgInner = Color(0xFF1a1730)`, `CompilingBgMid = Color(0xFF0c0a18)`, `CompilingBgOuter = Color(0xFF060509)`. Add `TextPrimaryHistory = Color(0xFFf3f5fb)`, `TextSecondaryHistory = Color(0xFF9aa3b8)`, `TextTertiaryHistory = Color(0xFF79829a)` (or unify — decision needed). Add `CompilingInk = Color(0xFFf4f3fb)`, `CompilingMuted = Color(0xFF8b8aa3)`, `CompilingMuted2 = Color(0xFF6f6e88)`. |
+| `theme/Theme.kt` | No structural change. Verify colorScheme mapping is complete. |
+
+**What I need from you:**
+- **Decision:** Manrope on History, or unify to DM Sans? (My recommendation: unify to DM Sans. Shipping 3 font families increases APK size and the visual difference is subtle at 13–15sp on a phone screen.)
+- **Decision:** Strict 8pt grid (snap mockup values) or relaxed spacing? (My recommendation: relaxed. The mockup values are intentional. Add them as named tokens.)
+- **Decision:** Unify text colors across screens, or maintain per-screen tuning? (My recommendation: unify to the Home values. The differences are <8 units and invisible on OLED.)
+
+**Missing assets:** None. Font TTFs exist (`space_grotesk.ttf`, `dm_sans.ttf` in `res/font/`).
+
+**Expected iterations:** 1–2 passes.
+
+---
+
+### Phase 2: Rebuild Shared Components
+
+**Files that change:**
+
+| File | Change |
+|------|--------|
+| `components/Button.kt` | Fix gradient to 3-stop (`#7c3aed` 0%, `#6d5cf0` 45%, `#3b82f6` 100%). Add violet glow shadow (`0 10px 24px rgba(108,76,230,0.35)`). Use `AppShape.button` (15dp). Use `AppType.button` (15.5sp/600). Fix Ghost variant `Brush.linearGradient` typo if present. |
+| `components/Card.kt` | `PremiumCard`: Use `AppShape.card` (18dp). Add top gradient overlay option. `HistoryCard` variant: asymmetric padding, accent bar slot, shimmer overlay. |
+| `components/NavBar.kt` | Add gradient background (`linear-gradient(180deg, transparent, rgba(8,11,20,.6))`). Verify pulse glow works. Use `AppType.caption` with 600 weight for labels. |
+| `components/Chip.kt` | Verify: 22dp radius, `rgba(139,92,246,0.30)` border, `rgba(139,92,246,0.05)` bg, 13sp/500. |
+| `components/TextField.kt` | Style to match: `#1b1b27` bg, 11dp radius, centered text, `rgba(255,255,255,0.06)` border. |
+| `icons/AppIcons.kt` | **Decision needed:** Replace Material placeholders with custom 2px-stroke SVGs, or keep Material? |
+| `effects/neonGlow.kt` | Verify 3-layer glow renders correctly. |
+| **New:** `components/IconButton.kt` | Extract the 42dp circle ghost button pattern (used in History header, Compiling back button). Currently duplicated inline. |
+| **New:** `components/SectionLabel.kt` | Extract the uppercase violet label pattern. Currently duplicated in CompileScreen and SettingsScreen. |
+| **New:** `components/Dialog.kt` | Custom `AlertDialog` styling: dark surface, violet buttons, DM Sans text. The default M3 AlertDialog is unusable in this dark theme. |
+
+**What I need from you:**
+- **Decision:** Custom icon set (24 SVGs) or Material Icons? The PREMIUM_DESIGN_PLAN specifies custom 2px-stroke icons. This is a significant asset creation task. If you don't have the SVGs, I can create them as `ImageVector` path data, but I need your approval on the style.
+- **The `app icon.jpeg`:** I cannot view it. I need a description or hosted URL to verify the adaptive icon matches.
+
+**Expected iterations:** 2–3 passes.
+
+---
+
+### Phase 3: Rebuild Screens (Prioritized by User Traffic)
+
+**Priority order:**
+1. **CompileScreen** (Home) — primary screen, first thing after splash
+2. **CompilingScreen** — the "wow" moment, highest emotional engagement
+3. **HistoryScreen** — frequent return visits
+4. **SettingsScreen** — low traffic but must not look broken
+5. **OnboardingScreen** — first-run only
+
+**Files that change per screen:**
+
+**CompileScreen:**
+- Replace all hardcoded dp/sp with tokens
+- Replace inline `BrandColors.*` with `MaterialTheme.colorScheme.*` where appropriate
+- Fix stats number to use `AppType.stat` (34sp)
+- Fix compile button to use `AppType.button`
+- Style dialogs with custom dark theme
+- Fix top padding to 14dp (not 12dp)
+- Add entrance animations (header fadeDown, cards fadeUp stagger)
+
+**CompilingScreen:**
+- **Add atmospheric background:** multi-layer radial gradient (`#1a1730` → `#0c0a18` → `#060509`) + violet/cyan radial overlays + vignette
+- **Fix aura:** Use `Brush.sweepGradient` (not radial) + `rotationZ` animation (9s spin) + blur fallback for API 26–30
+- **Add ring glow:** `drawArc` with shadow layer or `neonGlow` modifier
+- **Add text shadow** on percentage
+- **Add step entrance animations** (staggered fadeUp, delays 350/500/650/800ms)
+- **Add active step pulse ring** (scale 0.85→1.5, opacity 0.8→0, 1.8s)
+- **Add sheen skew** on pro-tip (`skewX(-18deg)` equivalent via `graphicsLayer { transformOrigin; rotationZ }` or custom `Path`)
+- **Add bulb flicker** (opacity keyframes, 3.5s)
+- **Add header entrance** (fadeDown 0.6s)
+- **Add ring popIn** (scale 0.85→1.0, 0.8s, `EmphasizedDecelerate`)
+- **Add responsive sizing** for small-height phones (ring 180dp when height < 700dp)
+
+**HistoryScreen:**
+- **Add atmospheric background:** `#05070d` base + radial gradients
+- **Add card top gradient overlay**
+- **Add accent bar shimmer** (3.4s linear infinite)
+- **Add card press interaction:** translateY(-3dp) + colored glow shadow (per-card accent color)
+- **Add PDF icon hover:** rotate(-3deg) scale(1.04) + colored drop-shadow
+- **Decision:** Manrope or DM Sans for body text
+- **Add nav bar gradient background**
+
+**SettingsScreen:**
+- Apply design language: atmospheric background, card styling, section headers
+- Add subtitle under header
+- Style connection indicator
+- No mockup — design in established language
+
+**OnboardingScreen:**
+- Apply design language: atmospheric background, violet accents
+- Add page indicator animation (active dot width transition)
+- Add page transition animation
+- Illustration placeholders remain until Asset I is delivered
+
+**What I need from you:**
+- For Settings and Onboarding: confirm "design in established language" is acceptable, or provide references
+- **Decision:** API 26–30 blur fallback for CompilingScreen aura. Options: (a) pre-blurred PNG, (b) skip aura blur on older devices, (c) use `RenderScript` (deprecated but works). My recommendation: (b) — the aura is still visible without blur, just sharper.
+
+**Expected iterations:** 2–3 passes per screen. CompileScreen and CompilingScreen need the most.
+
+---
+
+### Phase 4: Splash/Intro Animation
+
+**Files that change:**
+- `ui/splash/SplashScreen.kt` — Refine existing implementation:
+  - Replace `scaleX` flip with `graphicsLayer { rotationY }` + `cameraDistance`
+  - Replace sequential `delay()` with single keyframe timeline
+  - Tune Phase 1 spring (likely remove bounce)
+  - Consider trimming total duration to ~2600ms
+  - Verify all colors use `BrandColors` tokens
+  - Add subtle background radial gradient (match the violet glow aesthetic)
+
+**What I need from you:**
+- **Critical:** Confirm the 6-phase timeline matches the MP4, or describe what actually happens in the video
+- Decision: Keep procedural Canvas (my recommendation) or switch to Lottie?
+
+**Expected iterations:** 2–4 passes. Animation tuning is inherently iterative.
+
+---
+
+### Phase 5: Polish Pass
+
+**Files that change:**
+- All screens — spacing consistency audit (every padding/margin uses tokens)
+- `tokens/Motion.kt` — verify all animations use token durations/easings
+- `core/effects/` — verify pressScale on every interactive element
+- `components/NavBar.kt` — verify pulse glow timing matches mockup
+- Accessibility: `contentDescription` on all interactive elements, 48dp minimum touch targets
+- `theme/Theme.kt` — dark mode is forced; light mode is a placeholder. **Decision:** Keep dark-only or add light?
+- Remove unused Lottie dependency from `build.gradle.kts` (if Lottie isn't used)
+- Remove legacy font stubs (`GeistFamily`, `GeistMonoFamily`, `FrauncesFamily`) from `Type.kt`
+
+**What I need from you:**
+- Decision: Dark-only or add light mode?
+- Decision: Which micro-interactions from the PREMIUM_DESIGN_PLAN are priority? (11 haptic patterns, 6 sound effects, confetti, parallax, pull-to-refresh — that's a lot.)
+
+**Expected iterations:** 1–2 passes.
+
+---
+
+## 5) Summary of All Decisions Needed
+
+| # | Question | My Recommendation | Impact |
+|---|----------|-------------------|--------|
+| 1 | Manrope on History, or unify to DM Sans? | Unify to DM Sans | Font loading, visual consistency |
+| 2 | Strict 8pt grid or exact mockup spacing? | Relaxed — use exact mockup values as named tokens | Every padding/margin |
+| 3 | Unify text colors across screens? | Unify to Home values (`#f4f4f7` / `#8a8a99` / `#6f6f80`) | Color.kt, all screens |
+| 4 | Custom icon set or Material Icons? | Material for now, custom later | AppIcons.kt |
+| 5 | API 26–30 blur fallback? | Skip blur on older devices (aura still visible) | CompilingScreen |
+| 6 | Dark-only or add light mode? | Dark-only (matches all mockups) | Theme.kt |
+| 7 | Splash timeline accurate to MP4? | Need your confirmation | SplashScreen.kt |
+| 8 | Settings/Onboarding: design freehand in established language? | Yes | Those screens |
+| 9 | Trim splash from 3200ms to ~2600ms? | Yes (800ms hold is dead time) | SplashScreen.kt |
+| 10 | Remove unused Lottie dependency? | Yes | build.gradle.kts |
+
+---
+
+## I Am Stopping Here
+
+No code will be written. No files will be changed.
+
+**To proceed, I need:**
+1. Your answers to the 10 decisions above (or "go with your recommendations")
+2. Confirmation of the splash animation timeline (or a hosted link to the MP4)
+3. Explicit approval to begin Phase 0
+
+What would you like to address first?

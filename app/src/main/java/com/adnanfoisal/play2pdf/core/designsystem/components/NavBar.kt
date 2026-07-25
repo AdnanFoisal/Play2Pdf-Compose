@@ -76,7 +76,15 @@ fun Play2PdfBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .height(72.dp)
-            .background(BrandColors.Surface1)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        BrandColors.Bg.copy(alpha = 0.0f),
+                        BrandColors.Bg.copy(alpha = 0.72f),
+                        BrandColors.Bg.copy(alpha = 0.94f)
+                    )
+                )
+            )
     ) {
         // Top border hairline
         Box(

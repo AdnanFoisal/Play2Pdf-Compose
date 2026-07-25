@@ -24,6 +24,14 @@ object Spacing {
     val xxl = 48.dp   // 6 steps — screen-edge breathing
     val xxxl = 64.dp  // 8 steps — splash logo container
 
+    // Off-grid values used by the mockups. The 8-pt grid is the default, but
+    // the reference designs use these intentional half-steps for rhythm.
+    val smPlus = 9.dp     // pill vertical padding
+    val mdMinus = 14.dp   // history card gap, home top inset
+    val mdPlus = 18.dp    // home section spacing, history list padding
+    val lgMinus = 20.dp   // home screen horizontal padding
+    val lgPlus = 22.dp    // history header padding
+
     // Convenience helpers
     val cardPadding = md
     val screenPadding = lg

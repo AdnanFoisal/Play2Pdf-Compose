@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -55,9 +54,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adnanfoisal.play2pdf.core.designsystem.components.EmptyState
+import com.adnanfoisal.play2pdf.core.designsystem.components.GhostIconButton
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
+import com.adnanfoisal.play2pdf.core.effects.historyAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.PdfHistory
+import com.adnanfoisal.play2pdf.tokens.Motion
 import com.adnanfoisal.play2pdf.tokens.Spacing
 import com.adnanfoisal.play2pdf.theme.BrandColors
 import com.adnanfoisal.play2pdf.theme.HistoryCardAccents
@@ -86,7 +88,12 @@ fun HistoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxSize().background(BrandColors.Surface0)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BrandColors.HistoryBg)
+            .historyAtmosphere()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,15 +126,17 @@ fun HistoryScreen(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    IconButton(
+                    GhostIconButton(
                         icon = Icons.Filled.Search,
                         contentDescription = "Search",
-                        onClick = { /* TODO: expand search field */ }
+                        onClick = { /* TODO: expand search field */ },
+                        tint = BrandColors.TextSecondary
                     )
-                    IconButton(
+                    GhostIconButton(
                         icon = Icons.Filled.Tune,
                         contentDescription = "Filter",
-                        onClick = { /* TODO: open filter sheet */ }
+                        onClick = { /* TODO: open filter sheet */ },
+                        tint = BrandColors.TextSecondary
                     )
                 }
             }
@@ -170,30 +179,6 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun IconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.035f))
-            .border(1.dp, BrandColors.SurfaceBorder, CircleShape)
-            .pressScaleClickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = BrandColors.TextSecondary,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-@Composable
 private fun StaggeredHistoryCard(
     index: Int,
     item: PdfHistory,
@@ -212,10 +197,11 @@ private fun StaggeredHistoryCard(
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(550)) + slideInVertically(
-            animationSpec = tween(550),
-            initialOffsetY = { it / 8 }
-        )
+        enter = fadeIn(tween(Motion.Durations.Long, easing = Motion.Easings.EmphasizedDecelerate)) +
+            slideInVertically(
+                animationSpec = tween(Motion.Durations.Long, easing = Motion.Easings.EmphasizedDecelerate),
+                initialOffsetY = { it / 8 }
+            )
     ) {
         HistoryCard(
             item = item,

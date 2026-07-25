@@ -23,6 +23,15 @@ object AppShape {
     val large: Shape = RoundedCornerShape(20.dp)  // hero cards, modals
     val pill: Shape = RoundedCornerShape(999.dp)  // chips, FABs, toggles
 
+    // Mockup-exact radii (used directly where the 3-step scale doesn't fit).
+    val card: Shape = RoundedCornerShape(18.dp)   // main cards (Home, History)
+    val row: Shape = RoundedCornerShape(13.dp)    // nested rows
+    val button: Shape = RoundedCornerShape(15.dp) // compile CTA
+    val pill22: Shape = RoundedCornerShape(22.dp) // topic pills
+    val ytIcon: Shape = RoundedCornerShape(9.dp)  // YouTube icon squircle
+    val field: Shape = RoundedCornerShape(11.dp)  // PDF theme field, change btn
+    val step: Shape = RoundedCornerShape(14.dp)   // compiling step container
+
     /** Material 3 [Shapes] instance for components that consume the
      *  default shape system (e.g. Material3 Buttons that we don't override). */
     val material: Shapes = Shapes(
