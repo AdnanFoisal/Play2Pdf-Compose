@@ -1,5 +1,8 @@
 package com.adnanfoisal.play2pdf.ui.history
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -27,11 +30,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,15 +55,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adnanfoisal.play2pdf.core.designsystem.components.EmptyState
 import com.adnanfoisal.play2pdf.core.designsystem.components.GhostIconButton
+import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.historyAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
@@ -70,23 +81,23 @@ import java.util.Locale
 /**
  * History screen — the user's compiled-PDF library.
  *
- * Rewritten to match `mock assests/history screen.html` per
- * IMPLEMENTATION_PLAN.md Step 6:
- *  - Header with title + subtitle + search/filter icon buttons
- *  - Staggered fade-up entrance per card (delay = index * 80ms + 100ms)
- *  - Per-card left accent bar (4dp, gradient from [HistoryCardAccents])
- *  - PDF SVG icon drawn via Canvas, filled with per-card gradient
- *  - All [HistoryViewModel] wiring preserved (query, filter, delete)
- *
- * The existing `SwipeToDismissHistoryItem` component is kept in the repo
- * for future swipe support; the mockup shows tappable cards so we use
- * [HistoryCard] here.
+ * - Tap card → opens PDF in system viewer
+ * - 3-dot menu → dropdown with Delete / Rename
+ * - No swipe-to-delete
  */
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    // State for rename dialog
+    var renameTarget by remember { mutableStateOf<PdfHistory?>(null) }
+    var renameText by remember { mutableStateOf("") }
+
+    // State for delete confirmation
+    var deleteTarget by remember { mutableStateOf<PdfHistory?>(null) }
 
     Box(
         modifier = Modifier
@@ -165,8 +176,12 @@ fun HistoryScreen(
                             item = item,
                             accentTop = accentPair.first,
                             accentBot = accentPair.second,
-                            onClick = { /* TODO: open PDF */ },
-                            onDelete = { viewModel.delete(item) }
+                            onCardClick = { openPdf(context, item) },
+                            onDelete = { deleteTarget = item },
+                            onRename = {
+                                renameTarget = item
+                                renameText = item.subject
+                            }
                         )
                     }
                     item {
@@ -176,6 +191,87 @@ fun HistoryScreen(
             }
         }
     }
+
+    // Delete confirmation dialog
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Delete Study Guide?", color = BrandColors.TextPrimary) },
+            text = {
+                Text(
+                    "\"${deleteTarget!!.subject}\" will be permanently removed.",
+                    color = BrandColors.TextSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.delete(deleteTarget!!)
+                    deleteTarget = null
+                }) {
+                    Text("Delete", color = BrandColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) {
+                    Text("Cancel", color = BrandColors.TextSecondary)
+                }
+            },
+            containerColor = BrandColors.Surface1,
+            titleContentColor = BrandColors.TextPrimary,
+            textContentColor = BrandColors.TextSecondary
+        )
+    }
+
+    // Rename dialog
+    if (renameTarget != null) {
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename Study Guide", color = BrandColors.TextPrimary) },
+            text = {
+                PremiumTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    label = "Subject"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (renameText.isNotBlank()) {
+                        viewModel.rename(renameTarget!!, renameText.trim())
+                    }
+                    renameTarget = null
+                }) {
+                    Text("Save", color = BrandColors.Brand)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { renameTarget = null }) {
+                    Text("Cancel", color = BrandColors.TextSecondary)
+                }
+            },
+            containerColor = BrandColors.Surface1,
+            titleContentColor = BrandColors.TextPrimary,
+            textContentColor = BrandColors.TextSecondary
+        )
+    }
+}
+
+private fun openPdf(context: Context, item: PdfHistory) {
+    val uri = item.pdfUri
+    if (uri.isNullOrBlank()) {
+        Toast.makeText(context, "PDF file not available", Toast.LENGTH_SHORT).show()
+        return
+    }
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri.toUri(), "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "No PDF viewer app installed", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @Composable
@@ -184,10 +280,10 @@ private fun StaggeredHistoryCard(
     item: PdfHistory,
     accentTop: Color,
     accentBot: Color,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onCardClick: () -> Unit,
+    onDelete: () -> Unit,
+    onRename: () -> Unit
 ) {
-    // Staggered fade-up entrance: delay = index * 80ms + 100ms.
     val delayMs = (index * 80 + 100).coerceAtMost(800)
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -207,8 +303,9 @@ private fun StaggeredHistoryCard(
             item = item,
             accentTop = accentTop,
             accentBot = accentBot,
-            onClick = onClick,
-            onDelete = onDelete
+            onCardClick = onCardClick,
+            onDelete = onDelete,
+            onRename = onRename
         )
     }
 }
@@ -218,8 +315,9 @@ private fun HistoryCard(
     item: PdfHistory,
     accentTop: Color,
     accentBot: Color,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
+    onCardClick: () -> Unit,
+    onDelete: () -> Unit,
+    onRename: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
     val dateLabel = remember(item.createdAtEpochMs) {
@@ -232,15 +330,18 @@ private fun HistoryCard(
         }
     }
 
+    // State for dropdown menu
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(BrandColors.Surface3)
             .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
-            .pressScaleClickable(onClick = onClick)
+            .pressScaleClickable(onClick = onCardClick)
     ) {
-        // Left accent bar — 4dp wide vertical gradient, fills card height.
+        // Left accent bar
         Box(
             modifier = Modifier
                 .align(Alignment.CenterStart)
@@ -307,20 +408,59 @@ private fun HistoryCard(
                 }
             }
             Spacer(Modifier.width(12.dp))
-            // Card side — 3-dot menu + PDF SVG + date
+            // Card side — 3-dot menu + PDF icon + date
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.height(74.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.MoreVert,
-                    contentDescription = "More options",
-                    tint = BrandColors.TextTertiary,
-                    modifier = Modifier
-                        .size(22.dp)
-                        .pressScaleClickable(onClick = onDelete)
-                )
+                // 3-dot menu with dropdown
+                Box {
+                    Icon(
+                        imageVector = Icons.Filled.MoreVert,
+                        contentDescription = "More options",
+                        tint = BrandColors.TextTertiary,
+                        modifier = Modifier
+                            .size(22.dp)
+                            .pressScaleClickable(onClick = { menuExpanded = true })
+                    )
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        containerColor = BrandColors.Surface2
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename", color = BrandColors.TextPrimary) },
+                            onClick = {
+                                menuExpanded = false
+                                onRename()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Edit,
+                                    contentDescription = null,
+                                    tint = BrandColors.TextSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = BrandColors.Error) },
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = BrandColors.Error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        )
+                    }
+                }
                 PdfSvgIcon(accentTop = accentTop, accentBot = accentBot)
                 Text(
                     text = dateLabel,
@@ -334,23 +474,18 @@ private fun HistoryCard(
 }
 
 /**
- * PDF document SVG icon — drawn via Canvas using the path
- * `M6 1H31L45 15V52a5 5 0 0 1-5 5H6a5 5 0 0 1-5-5V6a5 5 0 0 1 5-5Z`
- * + fold path `M31 1V11a4 4 0 0 0 4 4H45Z`, scaled to 46×58dp, filled
- * with the per-card gradient. Per IMPLEMENTATION_PLAN.md Step 6.
+ * PDF document SVG icon — drawn via Canvas.
  */
 @Composable
 private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
     Canvas(modifier = Modifier.size(46.dp, 58.dp)) {
         val sx = size.width / 46f
         val sy = size.height / 58f
-        // Document body path
         val body = Path().apply {
             moveTo(6f * sx, 1f * sy)
             lineTo(31f * sx, 1f * sy)
             lineTo(45f * sx, 15f * sy)
             lineTo(45f * sx, 52f * sy)
-            // a5 5 0 0 1 -5 5
             arcTo(
                 rect = androidx.compose.ui.geometry.Rect(
                     left = 40f * sx, top = 47f * sy,
@@ -359,7 +494,6 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                 startAngleDegrees = 0f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             lineTo(6f * sx, 57f * sy)
-            // a5 5 0 0 1 -5 -5
             arcTo(
                 rect = androidx.compose.ui.geometry.Rect(
                     left = 1f * sx, top = 47f * sy,
@@ -368,7 +502,6 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
                 startAngleDegrees = 90f, sweepAngleDegrees = 90f, forceMoveTo = false
             )
             lineTo(1f * sx, 6f * sy)
-            // a5 5 0 0 1 5 -5
             arcTo(
                 rect = androidx.compose.ui.geometry.Rect(
                     left = 1f * sx, top = 1f * sy,
@@ -382,13 +515,11 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
             path = body,
             brush = Brush.verticalGradient(colors = listOf(accentTop, accentBot))
         )
-        // Body stroke
         drawPath(
             path = body,
             color = Color.White.copy(alpha = 0.14f),
             style = Stroke(width = 1f)
         )
-        // Fold path — M31 1V11a4 4 0 0 0 4 4H45Z
         val fold = Path().apply {
             moveTo(31f * sx, 1f * sy)
             lineTo(31f * sx, 11f * sy)
@@ -403,7 +534,6 @@ private fun PdfSvgIcon(accentTop: Color, accentBot: Color) {
             close()
         }
         drawPath(path = fold, color = Color.White.copy(alpha = 0.22f))
-        // "PDF" label — three small white lines suggesting text on the document.
         val labelY = 32f * sy
         val labelW = 18f * sx
         val labelH = 1.6f * sy

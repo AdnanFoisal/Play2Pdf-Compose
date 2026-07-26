@@ -7,6 +7,8 @@ import com.adnanfoisal.play2pdf.domain.model.Playlist
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.Topic
 import com.adnanfoisal.play2pdf.domain.model.TopicSource
+import com.adnanfoisal.play2pdf.domain.model.SharedCompileState
+import com.adnanfoisal.play2pdf.data.db.dao.HistoryDao
 import com.adnanfoisal.play2pdf.domain.usecase.ExtractTopicsUseCase
 import com.adnanfoisal.play2pdf.domain.usecase.FetchPlaylistMetaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +17,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -25,9 +30,15 @@ import javax.inject.Inject
  * Until the HistoryDao wiring lands (a follow-up), we fall back to the
  * mockup's demo curve so the UI matches `Home screen.html` visually.
  */
+data class DailyCount(
+    val dateLabel: String,  // e.g. "Jul 12"
+    val count: Int
+)
+
 data class HomeStats(
     val totalCount: Int = 0,
-    val sparkline: List<Float> = emptyList()
+    val sparkline: List<Float> = emptyList(),
+    val dailyCounts: List<DailyCount> = emptyList()
 )
 
 data class CompileUiState(
@@ -64,29 +75,78 @@ sealed interface CompileUiEvent {
 class CompileViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val extractTopics: ExtractTopicsUseCase,
-    private val fetchMeta: FetchPlaylistMetaUseCase
+    private val fetchMeta: FetchPlaylistMetaUseCase,
+    private val sharedCompileState: SharedCompileState,
+    private val historyDao: HistoryDao
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompileUiState())
     val state = _state.asStateFlow()
 
+    fun prepareForCompilation() {
+        val s = _state.value
+        sharedCompileState.subject = s.subject
+        sharedCompileState.author = s.author
+        sharedCompileState.playlistUrls = s.playlists.map { it.url }
+        sharedCompileState.topics = s.topics.map { it.text }
+        sharedCompileState.theme = s.selectedTheme
+    }
+
     init {
-        // Pre-fill author from saved user name + theme from saved preference,
-        // and expose the userName so the GreetingHeader can render it.
         viewModelScope.launch {
             val s = settings.settings.first()
             _state.update {
                 it.copy(
                     userName = s.userName,
                     author = s.userName,
-                    selectedTheme = s.selectedTheme,
-                    // Demo stats — matches the Home screen.html mockup until
-                    // HistoryDao wiring lands. The mockup shows "12 / This month".
-                    stats = HomeStats(
-                        totalCount = 0,
-                        sparkline = demoSparkline()
-                    )
+                    selectedTheme = s.selectedTheme
                 )
+            }
+        }
+        
+        viewModelScope.launch {
+            historyDao.observeAll().collect { history ->
+                // Build per-day counts for the last 15 days
+                val cal = Calendar.getInstance()
+                val dateFormat = SimpleDateFormat("MMM d", Locale.getDefault())
+                val dayMs = 86_400_000L
+
+                // Build list of last 15 days (oldest first)
+                val dailyCounts = mutableListOf<DailyCount>()
+                for (i in 14 downTo 0) {
+                    val dayCal = Calendar.getInstance().apply {
+                        add(Calendar.DAY_OF_YEAR, -i)
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    val dayStart = dayCal.timeInMillis
+                    val dayEnd = dayStart + dayMs
+                    val count = history.count { it.createdAtEpochMs in dayStart until dayEnd }
+                    dailyCounts.add(DailyCount(
+                        dateLabel = dateFormat.format(dayCal.time),
+                        count = count
+                    ))
+                }
+
+                // Sparkline is the float representation of daily counts
+                val sparkline = if (dailyCounts.all { it.count == 0 }) {
+                    // All zeros — show a flat line at 0
+                    dailyCounts.map { 0f }
+                } else {
+                    dailyCounts.map { it.count.toFloat() }
+                }
+
+                _state.update {
+                    it.copy(
+                        stats = HomeStats(
+                            totalCount = history.size,
+                            sparkline = sparkline,
+                            dailyCounts = dailyCounts
+                        )
+                    )
+                }
             }
         }
     }
@@ -229,11 +289,4 @@ class CompileViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Demo sparkline values normalized 0..1 — mirrors the curve in
-     * `Home screen.html` lines 257–258. Used only while history is empty.
-     */
-    private fun demoSparkline(): List<Float> =
-        listOf(0.34f, 0.38f, 0.48f, 0.42f, 0.25f, 0.30f, 0.56f, 0.44f, 0.30f,
-               0.20f, 0.36f, 0.52f, 0.66f, 0.72f, 0.56f)
 }

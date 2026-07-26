@@ -3,6 +3,7 @@ package com.adnanfoisal.play2pdf.ui.compile
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -55,12 +56,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.adnanfoisal.play2pdf.core.effects.homeAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.Playlist
@@ -98,6 +101,7 @@ fun CompileScreen(
     var showAddTopicDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAdvancedDialog by remember { mutableStateOf(false) }
+    var showStatsSheet by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -119,7 +123,10 @@ fun CompileScreen(
             Spacer(Modifier.height(18.dp))
 
             // Stats card — total compilations + sparkline
-            StatsCard(stats = state.stats)
+            StatsCard(
+                stats = state.stats,
+                onClick = { showStatsSheet = true }
+            )
             Spacer(Modifier.height(18.dp))
 
             // Section label
@@ -168,7 +175,10 @@ fun CompileScreen(
             // Compile button
             CompileButton(
                 enabled = state.canCompile,
-                onClick = onCompileRequest
+                onClick = {
+                    viewModel.prepareForCompilation()
+                    onCompileRequest()
+                }
             )
 
             Spacer(Modifier.height(18.dp))
@@ -228,6 +238,13 @@ fun CompileScreen(
             onDismiss = { showAdvancedDialog = false }
         )
     }
+
+    if (showStatsSheet) {
+        StatsFullScreenDialog(
+            stats = state.stats,
+            onDismiss = { showStatsSheet = false }
+        )
+    }
 }
 
 // --- Header ---
@@ -235,7 +252,15 @@ fun CompileScreen(
 @Composable
 private fun GreetingHeader(userName: String) {
     val name = userName.trim()
-    val greeting = if (name.isNotEmpty()) "Hello, $name \uD83D\uDC4B" else "Hello \uD83D\uDC4B"
+    val hour = java.time.LocalTime.now().hour
+    val timeGreeting = when (hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        in 17..20 -> "Good evening"
+        else -> "Hello" // Late night or default
+    }
+    val greeting = if (name.isNotEmpty()) "$timeGreeting, $name \uD83D\uDC4B" else "$timeGreeting \uD83D\uDC4B"
+    
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
@@ -256,56 +281,24 @@ private fun GreetingHeader(userName: String) {
                 fontSize = 13.5.sp
             )
         }
-        // Gold crown button — 42dp circle with gold border
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(BrandColors.Surface1)
-                .border(1.dp, BrandColors.Gold.copy(alpha = 0.35f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                // Crown path from Home screen.html: M3 7l3.5 3L12 4l5.5 6L21 7l-1.5 11h-15L3 7z
-                val w = size.minDimension / 24f
-                val crown = Path().apply {
-                    moveTo(3f * w, 7f * w)
-                    lineTo(6.5f * w, 10f * w)
-                    lineTo(12f * w, 4f * w)
-                    lineTo(17.5f * w, 10f * w)
-                    lineTo(21f * w, 7f * w)
-                    lineTo(19.5f * w, 18f * w)
-                    lineTo(4.5f * w, 18f * w)
-                    close()
-                }
-                drawPath(crown, BrandColors.Gold)
-                // Base bar
-                val base = Path().apply {
-                    moveTo(4.8f * w, 20f * w)
-                    lineTo(19.2f * w, 20f * w)
-                    lineTo(19.2f * w, 22f * w)
-                    lineTo(4.8f * w, 22f * w)
-                    close()
-                }
-                drawPath(base, BrandColors.Gold)
-            }
-        }
     }
 }
 
 // --- Stats card ---
 
 @Composable
-private fun StatsCard(stats: HomeStats) {
+private fun StatsCard(stats: HomeStats, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(BrandColors.Surface1)
+            .clickable { onClick() }
             .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
             .padding(18.dp)
     ) {
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -347,14 +340,15 @@ private fun Sparkline(values: List<Float>, modifier: Modifier = Modifier) {
         val padding = size.height * 0.12f
         val usableHeight = size.height - padding * 2
 
+        // If all values are the same (including all zeros), draw flat at bottom
+        val allSame = maxV == minV
         val points = values.mapIndexed { i, v ->
             Offset(
                 x = i * stepX,
-                y = padding + (1f - (v - minV) / range) * usableHeight
+                y = if (allSame) size.height - padding else padding + (1f - (v - minV) / range) * usableHeight
             )
         }
 
-        // Smooth-ish line path through the points
         val linePath = Path().apply {
             moveTo(points[0].x, points[0].y)
             for (i in 1 until points.size) {
@@ -365,7 +359,6 @@ private fun Sparkline(values: List<Float>, modifier: Modifier = Modifier) {
             }
         }
 
-        // Fill gradient underneath
         val fillPath = Path().apply {
             addPath(linePath)
             lineTo(points.last().x, size.height)
@@ -382,7 +375,6 @@ private fun Sparkline(values: List<Float>, modifier: Modifier = Modifier) {
             )
         )
 
-        // Line stroke with violet→cyan gradient
         drawPath(
             path = linePath,
             brush = Brush.horizontalGradient(
@@ -404,6 +396,255 @@ private fun SectionLabel(text: String) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.4.sp
     )
+}
+
+@Composable
+fun StatsFullScreenDialog(
+    stats: HomeStats,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BrandColors.Surface0)
+                .statusBarsPadding()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Compilation Stats",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandColors.TextPrimary
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(BrandColors.Surface2)
+                            .pressScaleClickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = "Close",
+                            tint = BrandColors.TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+
+                // Total count card
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(BrandColors.Surface1)
+                        .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(16.dp))
+                        .padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Total PDFs", color = BrandColors.TextSecondary, fontSize = 14.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = stats.totalCount.toString(),
+                                color = BrandColors.Brand,
+                                fontSize = 36.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("This Month", color = BrandColors.TextTertiary, fontSize = 12.sp)
+                            Spacer(Modifier.height(4.dp))
+                            val thisMonthCount = stats.dailyCounts.sumOf { it.count }
+                            Text(
+                                text = thisMonthCount.toString(),
+                                color = BrandColors.TextPrimary,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+
+                // Chart title
+                Text(
+                    text = "Last 15 Days",
+                    color = BrandColors.TextSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(12.dp))
+
+                // Full line chart
+                DailyLineChart(
+                    dailyCounts = stats.dailyCounts,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(BrandColors.Surface1)
+                        .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DailyLineChart(dailyCounts: List<DailyCount>, modifier: Modifier = Modifier) {
+    if (dailyCounts.isEmpty()) return
+    val maxCount = dailyCounts.maxOf { it.count }.coerceAtLeast(1)
+    // Y-axis labels: 0 to maxCount, with reasonable steps
+    val yStep = when {
+        maxCount <= 5 -> 1
+        maxCount <= 15 -> 3
+        maxCount <= 30 -> 5
+        else -> (maxCount / 5).coerceAtLeast(1)
+    }
+    val yLabels = (0..maxCount step yStep).toList().let {
+        if (it.last() < maxCount) it + maxCount else it
+    }
+
+    Column(modifier = modifier) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val n = dailyCounts.size
+                if (n < 2) return@Canvas
+                val leftPad = 36f
+                val bottomPad = 4f
+                val chartWidth = size.width - leftPad
+                val chartHeight = size.height - bottomPad
+                val stepX = chartWidth / (n - 1)
+                val yMax = yLabels.last().toFloat().coerceAtLeast(1f)
+
+                // Draw horizontal grid lines and Y labels
+                for (yVal in yLabels) {
+                    val yPos = chartHeight - (yVal.toFloat() / yMax) * chartHeight
+                    drawLine(
+                        color = Color(0x1AFFFFFF),
+                        start = Offset(leftPad, yPos),
+                        end = Offset(size.width, yPos),
+                        strokeWidth = 1f
+                    )
+                    // Y-axis label
+                    drawContext.canvas.nativeCanvas.drawText(
+                        yVal.toString(),
+                        leftPad - 12f,
+                        yPos + 4f,
+                        android.graphics.Paint().apply {
+                            color = 0xFF9CA3AF.toInt()
+                            textSize = 24f
+                            textAlign = android.graphics.Paint.Align.RIGHT
+                            isAntiAlias = true
+                        }
+                    )
+                }
+
+                // Data points
+                val points = dailyCounts.mapIndexed { i, dc ->
+                    Offset(
+                        x = leftPad + i * stepX,
+                        y = chartHeight - (dc.count.toFloat() / yMax) * chartHeight
+                    )
+                }
+
+                // Smooth line
+                val linePath = Path().apply {
+                    moveTo(points[0].x, points[0].y)
+                    for (i in 1 until points.size) {
+                        val prev = points[i - 1]
+                        val curr = points[i]
+                        val midX = (prev.x + curr.x) / 2f
+                        cubicTo(midX, prev.y, midX, curr.y, curr.x, curr.y)
+                    }
+                }
+
+                // Fill gradient
+                val fillPath = Path().apply {
+                    addPath(linePath)
+                    lineTo(points.last().x, chartHeight)
+                    lineTo(points.first().x, chartHeight)
+                    close()
+                }
+                drawPath(
+                    path = fillPath,
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            BrandColors.BrandDeep.copy(alpha = 0.3f),
+                            BrandColors.BrandDeep.copy(alpha = 0f)
+                        )
+                    )
+                )
+
+                // Line stroke
+                drawPath(
+                    path = linePath,
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(BrandColors.BrandStrong, BrandColors.Cyan)
+                    ),
+                    style = Stroke(width = 2.8f)
+                )
+
+                // Dot markers on data points
+                for (pt in points) {
+                    drawCircle(
+                        color = BrandColors.Brand,
+                        radius = 4f,
+                        center = pt
+                    )
+                    drawCircle(
+                        color = BrandColors.Surface1,
+                        radius = 2f,
+                        center = pt
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        // X-axis date labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 36.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Show every 3rd label to avoid crowding
+            dailyCounts.forEachIndexed { i, dc ->
+                if (i % 3 == 0 || i == dailyCounts.size - 1) {
+                    Text(
+                        text = dc.dateLabel.substringAfter(" "),  // Just the day number
+                        color = BrandColors.TextQuaternary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                } else {
+                    Spacer(Modifier.width(1.dp))
+                }
+            }
+        }
+    }
 }
 
 // --- Playlists card ---
@@ -814,16 +1055,30 @@ private fun TopicInputDialog(
                 .padding(horizontal = Spacing.lg, vertical = Spacing.md)
                 .padding(bottom = Spacing.xl)
         ) {
-            Text("Add Topic", color = BrandColors.TextPrimary, style = AppType.title3)
-            Spacer(Modifier.height(Spacing.md))
-            PremiumTextField(
-                value = initialValue,
-                onValueChange = onValueChange,
-                label = "Topic (comma-separated)",
-                placeholder = "e.g. Photosynthesis, Cell division"
+            Text("Add Topics (Batch Import)", color = BrandColors.TextPrimary, style = AppType.title3)
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                "Paste multiple topics separated by commas or newlines. They will be added all at once.",
+                color = BrandColors.TextSecondary,
+                fontSize = 13.sp
             )
             Spacer(Modifier.height(Spacing.md))
-            PrimaryButton(text = "Add Topic", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
+            androidx.compose.material3.OutlinedTextField(
+                value = initialValue,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                placeholder = { Text("e.g. Photosynthesis, Cell division\nGenetics", color = BrandColors.TextSecondary) },
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = BrandColors.Brand,
+                    unfocusedBorderColor = BrandColors.SurfaceBorder,
+                    focusedTextColor = BrandColors.TextPrimary,
+                    unfocusedTextColor = BrandColors.TextPrimary
+                )
+            )
+            Spacer(Modifier.height(Spacing.md))
+            PrimaryButton(text = "Add Topics", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
         }
     }
 }
