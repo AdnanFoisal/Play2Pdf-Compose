@@ -363,7 +363,7 @@ Videos ({len(videos_payload)} items): {json.dumps(videos_payload)}
 
 Matching Rules:
 1. Primary factor: direct semantic coverage of the topic's core concept in the video's title/description.
-2. A topic may be matched to ONE or MULTIPLE videos (max {MAX_VIDEOS_PER_TOPIC}) only when multiple videos are genuinely needed to cover distinct sub-parts of that topic (e.g. separate "insertion" and "deletion" lectures). Do not attach extra videos just to pad coverage.
+2. A topic may be matched to ONE or MULTIPLE videos (max {MAX_VIDEOS_PER_TOPIC}). If a topic is broad, feel free to include several relevant videos that collectively cover it well.
 3. Quality preference: each video includes "duration_seconds" and "views". When multiple videos are similarly relevant, prefer substantive lecture-length videos over very short (<3 minute) teaser/intro clips, unless the short clip is clearly the best or only match.
 4. Avoid reusing the exact same video for many unrelated topics; only reuse a video across topics if it genuinely covers both (e.g. a combined "Big-O / Big-Omega / Big-Theta" lecture covering three separate notation topics is fine to reuse).
 5. Strictness: if no video meaningfully addresses the topic, set "video_ids": [], "confidence": "none", and "study_note": "No direct match found in playlist."
@@ -436,7 +436,9 @@ async def extract_topics(req: ExtractTopicsRequest):
         prompt = (
             f"Given these YouTube video titles from a course playlist:\n"
             f"{json.dumps(titles)}\n\n"
-            f"Extract a deduplicated list of distinct syllabus/course topics covered. "
+            f"Extract a concise, high-level list of distinct syllabus/course topics covered. "
+            f"Group detailed concepts into broader topics. "
+            f"Limit the list to a maximum of 15-20 core topics. "
             f"Return a JSON array of topic strings only, no commentary."
         )
         from google.generativeai.types import GenerationConfig
