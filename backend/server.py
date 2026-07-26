@@ -259,6 +259,46 @@ def truncate(text: str, n: int) -> str:
     return text if len(text) <= n else text[: n - 1].rstrip() + ".."
 
 
+# --- Text sanitization for PDF (Latin-1 safe) --------------------------------
+_UNICODE_REPLACEMENTS: dict[str, str] = {
+    "\u2014": "-",    # em-dash
+    "\u2013": "-",    # en-dash
+    "\u2018": "'",    # left single quote
+    "\u2019": "'",    # right single quote
+    "\u201c": '"',    # left double quote
+    "\u201d": '"',    # right double quote
+    "\u2026": "...",  # ellipsis
+    "\u2022": "*",    # bullet
+    "\u00a0": " ",    # non-breaking space
+    "\u2010": "-",    # hyphen
+    "\u2011": "-",    # non-breaking hyphen
+    "\u2012": "-",    # figure dash
+    "\u2015": "-",    # horizontal bar
+    "\u2032": "'",    # prime
+    "\u2033": '"',    # double prime
+    "\u2192": "->",   # right arrow
+    "\u2190": "<-",   # left arrow
+    "\u2264": "<=",   # less than or equal
+    "\u2265": ">=",   # greater than or equal
+}
+
+
+def sanitize_for_pdf(text: str) -> str:
+    """Replace non-Latin-1 Unicode characters with safe ASCII equivalents.
+
+    Built-in PDF fonts (Times, Helvetica, Courier) in fpdf2 only support
+    the Latin-1 character set. YouTube titles and AI-generated notes often
+    contain em-dashes, smart quotes, and other Unicode that would crash
+    the PDF serialization step.
+    """
+    if not text:
+        return text
+    for char, replacement in _UNICODE_REPLACEMENTS.items():
+        text = text.replace(char, replacement)
+    # Final safety net: replace any remaining non-Latin-1 chars with '?'
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
 def fetch_videos(api_key: str, urls: list[str]) -> list[dict]:
     youtube = build("youtube", "v3", developerKey=api_key)
     all_videos: list[dict] = []
@@ -611,13 +651,13 @@ async def generate_guide(req: GenerationRequest, request: Request):
         pdf.set_x(0)
         pdf.set_font(theme["font_family"], "B", 48)
         pdf.set_text_color(*theme["text"])
-        pdf.cell(0, 20, req.subject.upper(), align="C")
+        pdf.cell(0, 20, sanitize_for_pdf(req.subject.upper()), align="C")
         
         pdf.set_y(pdf.h / 2 + 5)
         pdf.set_x(0)
         pdf.set_font(theme["font_family"], "", 16)
         pdf.set_text_color(*theme["subtext"])
-        pdf.cell(0, 10, f"PREPARED FOR: {req.author.upper()}", align="C")
+        pdf.cell(0, 10, f"PREPARED FOR: {sanitize_for_pdf(req.author.upper())}", align="C")
 
         # Bottom Border and Watermark
         pdf.set_draw_color(*theme["text"])
@@ -683,19 +723,19 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.cell(CW[0], row_height, "[  ]", border="B", align="C")
                 idx_str = f"{topic_idx+1}" if len(res["videos"]) == 1 else f"{topic_idx+1}.{v_idx+1}"
                 pdf.cell(CW[1], row_height, idx_str, border="B", align="C")
-                topic_label = truncate(res["topic"], 26) if v_idx == 0 else f"  > {truncate(res['topic'], 24)}"
+                topic_label = truncate(sanitize_for_pdf(res["topic"]), 26) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res['topic']), 24)}"
                 pdf.cell(CW[2], row_height, topic_label, border="B")
 
                 x_col3 = pdf.get_x()
                 pdf.cell(CW[3], row_height, "", border="B")
                 pdf.set_xy(x_col3, row_y + 2)
                 pdf.set_font(theme["font_family"], "B", 9)
-                pdf.cell(CW[3], 5, truncate(vid["title"], 52))
+                pdf.cell(CW[3], 5, truncate(sanitize_for_pdf(vid["title"]), 52))
 
                 pdf.set_xy(x_col3, row_y + 8)
                 pdf.set_font(theme["font_family"], "I", 7.5)
                 pdf.set_text_color(100, 110, 125)
-                note_text = f"Key Focus: {truncate(res['study_note'], 70)}" if res.get("study_note") else ""
+                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 70)}" if res.get("study_note") else ""
                 pdf.cell(CW[3], 5, note_text)
 
                 pdf.set_xy(x_col3 + CW[3], row_y)
@@ -736,7 +776,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
             for res in unmatched_results:
                 if pdf.get_y() + 8 + 15 > pdf.h:
                     pdf.add_page()
-                pdf.cell(0, 7, f"-  {res['topic']}")
+                pdf.cell(0, 7, f"-  {sanitize_for_pdf(res['topic'])}")
                 pdf.set_y(pdf.get_y() + 7)
 
         pdf_output = pdf.output(dest="S")
