@@ -100,70 +100,39 @@ except ImportError:
 
 # --- PDF themes (unchanged from v1) -----------------------------------------
 THEMES: dict[str, dict] = {
-    "tufte_scholar": {
-        "bg": (250, 248, 245), "accent": (181, 154, 87), "text": (31, 31, 31),
-        "paper_bg": (250, 248, 245), "paper_text": (31, 31, 31),
-        "paper_border": (220, 215, 205), "font_family": "Times",
+    # Light Themes
+    "nordic_frost": {
+        "bg": (242, 246, 250), "accent": (134, 168, 196), "text": (44, 62, 80), "subtext": (127, 140, 141),
+        "paper_bg": (255, 255, 255), "paper_text": (44, 62, 80), "paper_border": (236, 240, 241), "font_family": "Times",
     },
-    "princeton_math": {
-        "bg": (30, 58, 138), "accent": (249, 115, 22), "text": (255, 255, 255),
-        "paper_bg": (255, 255, 252), "paper_text": (30, 41, 59),
-        "paper_border": (203, 213, 225), "font_family": "Times",
+    "velvet_dawn": {
+        "bg": (253, 246, 241), "accent": (214, 158, 145), "text": (92, 70, 70), "subtext": (168, 144, 144),
+        "paper_bg": (255, 252, 249), "paper_text": (92, 70, 70), "paper_border": (245, 235, 230), "font_family": "Times",
     },
-    "midnight_terminal": {
-        "bg": (0, 0, 0), "accent": (57, 255, 20), "text": (0, 240, 255),
-        "paper_bg": (0, 0, 0), "paper_text": (57, 255, 20),
-        "paper_border": (0, 240, 255), "font_family": "Courier",
+    "mint_blueprint": {
+        "bg": (237, 252, 248), "accent": (52, 211, 153), "text": (15, 118, 110), "subtext": (20, 184, 166),
+        "paper_bg": (255, 255, 255), "paper_text": (15, 118, 110), "paper_border": (204, 251, 241), "font_family": "Courier",
     },
-    "cambridge_emerald": {
-        "bg": (15, 76, 58), "accent": (212, 175, 55), "text": (254, 253, 249),
-        "paper_bg": (254, 253, 249), "paper_text": (15, 76, 58),
-        "paper_border": (212, 175, 55), "font_family": "Times",
+    "golden_era": {
+        "bg": (244, 240, 230), "accent": (184, 145, 78), "text": (66, 52, 38), "subtext": (117, 102, 88),
+        "paper_bg": (252, 250, 245), "paper_text": (66, 52, 38), "paper_border": (222, 211, 190), "font_family": "Times",
     },
-    "bauhaus_geometric": {
-        "bg": (244, 241, 234), "accent": (230, 95, 43), "text": (0, 0, 0),
-        "paper_bg": (244, 241, 234), "paper_text": (0, 0, 0),
-        "paper_border": (0, 0, 0), "font_family": "Helvetica",
+    # Dark Themes
+    "midnight_purple": {
+        "bg": (20, 15, 38), "accent": (255, 42, 128), "text": (255, 255, 255), "subtext": (180, 168, 204),
+        "paper_bg": (30, 24, 51), "paper_text": (240, 240, 240), "paper_border": (69, 58, 100), "font_family": "Helvetica",
     },
-    "swiss_stark": {
-        "bg": (0, 0, 0), "accent": (220, 38, 38), "text": (255, 255, 255),
-        "paper_bg": (255, 255, 255), "paper_text": (0, 0, 0),
-        "paper_border": (226, 232, 240), "font_family": "Helvetica",
+    "cyberpunk_2077": {
+        "bg": (18, 18, 18), "accent": (0, 255, 240), "text": (250, 250, 51), "subtext": (140, 140, 140),
+        "paper_bg": (28, 28, 28), "paper_text": (230, 230, 230), "paper_border": (51, 51, 51), "font_family": "Courier",
     },
-    "oxford_burgundy": {
-        "bg": (112, 26, 37), "accent": (245, 158, 11), "text": (253, 251, 247),
-        "paper_bg": (253, 251, 247), "paper_text": (112, 26, 37),
-        "paper_border": (220, 205, 200), "font_family": "Times",
+    "obsidian_crimson": {
+        "bg": (10, 10, 10), "accent": (220, 20, 60), "text": (224, 224, 224), "subtext": (128, 128, 128),
+        "paper_bg": (18, 18, 18), "paper_text": (200, 200, 200), "paper_border": (40, 40, 40), "font_family": "Helvetica",
     },
-    "deep_space": {
-        "bg": (11, 15, 25), "accent": (6, 182, 212), "text": (139, 92, 246),
-        "paper_bg": (11, 15, 25), "paper_text": (255, 255, 255),
-        "paper_border": (139, 92, 246), "font_family": "Helvetica",
-    },
-    "mit_tech": {
-        "bg": (13, 148, 136), "accent": (107, 114, 128), "text": (255, 255, 255),
-        "paper_bg": (255, 255, 255), "paper_text": (13, 148, 136),
-        "paper_border": (203, 213, 225), "font_family": "Helvetica",
-    },
-    "wharton_ledger": {
-        "bg": (15, 23, 42), "accent": (71, 85, 107), "text": (255, 255, 255),
-        "paper_bg": (255, 255, 255), "paper_text": (15, 23, 42),
-        "paper_border": (226, 232, 240), "font_family": "Times",
-    },
-    "sumi_ink": {
-        "bg": (250, 250, 250), "accent": (194, 65, 12), "text": (43, 43, 43),
-        "paper_bg": (250, 250, 250), "paper_text": (43, 43, 43),
-        "paper_border": (229, 229, 229), "font_family": "Times",
-    },
-    "renaissance_gold": {
-        "bg": (78, 54, 41), "accent": (197, 160, 89), "text": (243, 239, 224),
-        "paper_bg": (243, 239, 224), "paper_text": (78, 54, 41),
-        "paper_border": (197, 160, 89), "font_family": "Times",
-    },
-    "warm_sunset_dark": {
-        "bg": (30, 21, 20), "accent": (255, 158, 100), "text": (232, 230, 227),
-        "paper_bg": (34, 27, 25), "paper_text": (232, 230, 227),
-        "paper_border": (197, 90, 103), "font_family": "Helvetica",
+    "oceanic_abyss": {
+        "bg": (4, 15, 31), "accent": (0, 204, 255), "text": (240, 248, 255), "subtext": (100, 149, 237),
+        "paper_bg": (10, 25, 47), "paper_text": (220, 235, 255), "paper_border": (30, 58, 138), "font_family": "Helvetica",
     },
 }
 
@@ -564,47 +533,49 @@ async def generate_guide(req: GenerationRequest, request: Request):
                     "confidence": "none",
                 })
 
-        theme = THEMES.get(req.theme, THEMES["tufte_scholar"])
+        theme = THEMES.get(req.theme, THEMES["nordic_frost"])
         pdf = StudyGuidePDF(req.subject, theme)
 
-        # --- Magazine-Style Cover Page ---
+        # --- Editorial-Style Cover Page ---
         pdf.add_page()
         pdf.set_fill_color(*theme["bg"])
         pdf.rect(0, 0, pdf.w, pdf.h, "F")
 
-        # Sleek vertical accent line on the left
-        pdf.set_fill_color(*theme["accent"])
-        pdf.rect(15, 0, 8, pdf.h, "F")
-
-        # Abstract Graphic in the center
-        # We draw a few overlapping geometric shapes (circles and lines) for a modern look
-        cx, cy = pdf.w / 2 + 5, pdf.h / 2 + 10
+        # Abstract Geometric Background (overlapping outlines)
         pdf.set_draw_color(*theme["accent"])
-        pdf.set_line_width(1.5)
-        pdf.ellipse(cx - 30, cy - 30, 60, 60, "D")
-        pdf.set_fill_color(*theme.get("primary", (40, 40, 40)))
-        pdf.ellipse(cx - 10, cy + 10, 40, 40, "F")
-        pdf.line(15, cy - 40, pdf.w, cy - 40)
-        pdf.line(cx + 10, cy + 50, cx + 10, pdf.h)
-
-        # Title block (Top Left, beside the accent line)
-        pdf.set_y(40)
-        pdf.set_x(30)
-        pdf.set_font(theme["font_family"], "B", 42)
-        pdf.set_text_color(*theme["text"])
-        pdf.multi_cell(0, 16, req.subject.upper(), align="L")
+        pdf.set_line_width(0.5)
+        # Large concentric circles off-center
+        for r in range(40, 160, 20):
+            pdf.ellipse(pdf.w - 40 - r, pdf.h / 2 - r, r * 2, r * 2, "D")
         
-        pdf.set_x(30)
-        pdf.set_font(theme["font_family"], "", 14)
-        pdf.set_text_color(*theme["subtext"])
-        pdf.cell(0, 10, f"CURATED FOR: {req.author.upper()}", align="L")
+        # Diagonal accent lines
+        pdf.set_line_width(2.0)
+        pdf.line(pdf.w - 100, 0, pdf.w, 100)
+        pdf.line(pdf.w - 120, 0, pdf.w, 120)
 
-        # Watermark at the bottom
-        pdf.set_y(pdf.h - 30)
-        pdf.set_x(30)
+        # Title Block (Centered, elegant)
+        pdf.set_y(pdf.h / 2 - 30)
+        pdf.set_x(0)
+        pdf.set_font(theme["font_family"], "B", 48)
+        pdf.set_text_color(*theme["text"])
+        pdf.cell(0, 20, req.subject.upper(), align="C")
+        
+        pdf.set_y(pdf.h / 2 + 5)
+        pdf.set_x(0)
+        pdf.set_font(theme["font_family"], "", 16)
+        pdf.set_text_color(*theme["subtext"])
+        pdf.cell(0, 10, f"PREPARED FOR: {req.author.upper()}", align="C")
+
+        # Bottom Border and Watermark
+        pdf.set_draw_color(*theme["text"])
+        pdf.set_line_width(0.3)
+        pdf.line(40, pdf.h - 40, pdf.w - 40, pdf.h - 40)
+        
+        pdf.set_y(pdf.h - 35)
+        pdf.set_x(0)
         pdf.set_font(theme["font_family"], "I", 10)
         pdf.set_text_color(*theme["subtext"])
-        pdf.cell(0, 10, "Generated by Play2PDF Studio", align="L")
+        pdf.cell(0, 10, "Generated by Play2PDF Studio - The Intelligent Video Compiler", align="C")
 
         # --- Study Grid Page ---
         pdf.add_page()
