@@ -56,7 +56,7 @@ class SettingsRepository @Inject constructor(
             backendUrl = p[Keys.BackendUrl] ?: defaultBackendUrl,
             userName = p[Keys.UserName] ?: "",
             onboardingComplete = p[Keys.OnboardingComplete] ?: false,
-            selectedTheme = PdfTheme.fromApiName(p[Keys.SelectedTheme] ?: PdfTheme.TufteScholar.apiName),
+            selectedTheme = PdfTheme.fromApiName(p[Keys.SelectedTheme] ?: PdfTheme.NordicFrost.apiName),
             soundEnabled = p[Keys.SoundEnabled] ?: true,
             hapticsEnabled = p[Keys.HapticsEnabled] ?: true
         )
@@ -95,7 +95,7 @@ class SettingsRepository @Inject constructor(
                 backendUrl = p[Keys.BackendUrl] ?: defaultBackendUrl,
                 userName = p[Keys.UserName] ?: "",
                 onboardingComplete = p[Keys.OnboardingComplete] ?: false,
-                selectedTheme = PdfTheme.fromApiName(p[Keys.SelectedTheme] ?: PdfTheme.TufteScholar.apiName),
+                selectedTheme = PdfTheme.fromApiName(p[Keys.SelectedTheme] ?: PdfTheme.NordicFrost.apiName),
                 soundEnabled = p[Keys.SoundEnabled] ?: true,
                 hapticsEnabled = p[Keys.HapticsEnabled] ?: true
             )

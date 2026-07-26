@@ -47,6 +47,39 @@ fun MainScreen(
     val nestedNavController = rememberNavController()
     val backStackEntry by nestedNavController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route ?: Routes.Compile
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    var showExitDialog by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    // Intercept back presses only when on the Compile tab (the root tab).
+    // If on other tabs, let the NavController handle popping back to Compile.
+    androidx.activity.compose.BackHandler(enabled = currentRoute == Routes.Compile) {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { androidx.compose.material3.Text("Exit App", style = com.adnanfoisal.play2pdf.theme.AppType.title3) },
+            text = { androidx.compose.material3.Text("Are you sure you want to exit?", style = com.adnanfoisal.play2pdf.theme.AppType.body) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showExitDialog = false
+                    (context as? android.app.Activity)?.finish()
+                }) {
+                    androidx.compose.material3.Text("Yes", style = com.adnanfoisal.play2pdf.theme.AppType.button)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showExitDialog = false }) {
+                    androidx.compose.material3.Text("No", style = com.adnanfoisal.play2pdf.theme.AppType.button)
+                }
+            },
+            containerColor = com.adnanfoisal.play2pdf.theme.BrandColors.Surface1,
+            titleContentColor = com.adnanfoisal.play2pdf.theme.BrandColors.TextPrimary,
+            textContentColor = com.adnanfoisal.play2pdf.theme.BrandColors.TextSecondary
+        )
+    }
 
     val items = remember {
         listOf(

@@ -3,9 +3,12 @@ package com.adnanfoisal.play2pdf.domain.usecase
 import com.adnanfoisal.play2pdf.data.repository.CompileRepository
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -35,14 +38,24 @@ class CompileGuideUseCase @Inject constructor(
         playlistUrls: List<String>,
         topics: List<String>,
         theme: PdfTheme
-    ): Flow<CompileState> = flow {
-        emit(CompileState.Step(CompileStep.Connecting))
+    ): Flow<CompileState> = channelFlow {
+        send(CompileState.Step(CompileStep.Connecting))
         delay(200)
-        emit(CompileState.Step(CompileStep.FetchingVideos))
+        send(CompileState.Step(CompileStep.FetchingVideos))
 
-        // Run the actual API call
+        val progressJob = launch {
+            delay(2000)
+            send(CompileState.Step(CompileStep.ExtractingTopics))
+            delay(2000)
+            send(CompileState.Step(CompileStep.MatchingTopics))
+            delay(4000)
+            send(CompileState.Step(CompileStep.RenderingPdf))
+        }
+
         val result = repo.generateGuide(subject, author, playlistUrls, topics, theme)
-        emit(CompileState.Result(result))
+        
+        progressJob.cancel()
+        send(CompileState.Result(result))
     }
 }
 

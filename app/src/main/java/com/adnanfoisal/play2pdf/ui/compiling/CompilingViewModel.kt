@@ -6,7 +6,11 @@ import com.adnanfoisal.play2pdf.data.prefs.SettingsRepository
 import com.adnanfoisal.play2pdf.data.repository.CompileResult
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
+import com.adnanfoisal.play2pdf.domain.model.SharedCompileState
 import com.adnanfoisal.play2pdf.domain.usecase.CompileGuideUseCase
+import com.adnanfoisal.play2pdf.data.db.dao.HistoryDao
+import com.adnanfoisal.play2pdf.data.db.entity.HistoryEntity
+import com.adnanfoisal.play2pdf.data.db.Converters
 import com.adnanfoisal.play2pdf.domain.usecase.CompileState
 import com.adnanfoisal.play2pdf.domain.usecase.SavePdfToDownloadsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,21 +42,27 @@ sealed interface CompilingPhase {
 class CompilingViewModel @Inject constructor(
     private val compileGuide: CompileGuideUseCase,
     private val savePdf: SavePdfToDownloadsUseCase,
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val sharedCompileState: SharedCompileState,
+    private val historyDao: HistoryDao
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompilingUiState())
     val state: StateFlow<CompilingUiState> = _state.asStateFlow()
+    
+    init {
+        start()
+    }
 
-    fun start(
-        subject: String,
-        author: String,
-        playlistUrls: List<String>,
-        topics: List<String>,
-        theme: PdfTheme
-    ) {
+    private fun start() {
         viewModelScope.launch {
-            compileGuide(subject, author, playlistUrls, topics, theme).collect { state ->
+            compileGuide(
+                sharedCompileState.subject,
+                sharedCompileState.author,
+                sharedCompileState.playlistUrls,
+                sharedCompileState.topics,
+                sharedCompileState.theme
+            ).collect { state ->
                 when (state) {
                     is CompileState.Step -> _state.update {
                         it.copy(
@@ -75,6 +85,7 @@ class CompilingViewModel @Inject constructor(
                 completedSteps = emptySet()
             )
         }
+        start()
     }
 
     fun saveToDownloads(onSaved: (android.net.Uri?) -> Unit) {
@@ -83,6 +94,24 @@ class CompilingViewModel @Inject constructor(
             val s = settings.settings.first()
             val displayName = "${s.userName.ifBlank { "study_guide" }}_${System.currentTimeMillis()}"
             val uri = savePdf(file, displayName)
+            
+            // Update history entity with the saved URI
+            val currentFile = _state.value.pdfFile
+            if (uri != null && currentFile != null) {
+                 val entity = HistoryEntity(
+                     subject = sharedCompileState.subject,
+                     author = sharedCompileState.author,
+                     playlistUrlsJson = Converters().fromStringList(sharedCompileState.playlistUrls),
+                     topicsJson = Converters().fromStringList(sharedCompileState.topics),
+                     theme = sharedCompileState.theme.name,
+                     createdAtEpochMs = System.currentTimeMillis(),
+                     pdfUri = uri.toString(),
+                     pdfSizeBytes = currentFile.length(),
+                     videoCount = null,
+                     topicCount = sharedCompileState.topics.size
+                 )
+                 historyDao.insert(entity)
+            }
             onSaved(uri)
         }
     }

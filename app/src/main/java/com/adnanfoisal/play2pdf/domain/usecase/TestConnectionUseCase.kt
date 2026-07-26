@@ -6,5 +6,5 @@ import javax.inject.Inject
 class TestConnectionUseCase @Inject constructor(
     private val repo: ConnectionRepository
 ) {
-    suspend operator fun invoke() = repo.refresh()
+    suspend operator fun invoke(youtubeKey: String, geminiKey: String) = repo.refresh(youtubeKey, geminiKey)
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -142,57 +143,79 @@ fun PdfThemeMiniPreview(
  */
 @Composable
 private fun MiniPageContent(pal: PdfThemePalette) {
-    Canvas(modifier = Modifier.fillMaxSize().padding(0.dp)) {
-        val w = size.width
-        val h = size.height
-        val padX = w * 0.14f
-        val contentW = w - padX * 2
-        var y = h * 0.16f
-        val lineH = h * 0.028f
-        val gap = h * 0.052f
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 12.dp, horizontal = 10.dp)
+    ) {
+        val width = size.width
+        val height = size.height
+        val corner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
 
-        fun bar(fraction: Float, color: Color, thickness: Float, radius: Float = thickness / 2f) {
-            drawRoundRect(
-                color = color,
-                topLeft = Offset(padX, y),
-                size = Size(contentW * fraction, thickness),
-                cornerRadius = CornerRadius(radius, radius)
-            )
-        }
-
-        // Title (heading color, thicker)
-        bar(0.72f, pal.heading, lineH * 1.9f)
-        y += lineH * 1.9f + gap * 0.5f
-        // Heading rule (accent)
-        bar(0.34f, pal.accent, lineH * 0.9f)
-        y += lineH * 0.9f + gap
-
-        // Body lines
-        repeat(4) { i ->
-            val frac = when (i) {
-                3 -> 0.55f
-                else -> 0.92f - (i % 2) * 0.06f
-            }
-            bar(frac, pal.body.copy(alpha = 0.55f), lineH)
-            y += lineH + gap * 0.62f
-        }
-
-        y += gap * 0.4f
-        // A subheading in heading color
-        bar(0.46f, pal.heading.copy(alpha = 0.9f), lineH * 1.2f)
-        y += lineH * 1.2f + gap * 0.6f
-        // Two more body lines
-        repeat(2) {
-            bar(if (it == 1) 0.62f else 0.88f, pal.body.copy(alpha = 0.5f), lineH)
-            y += lineH + gap * 0.62f
-        }
-
-        // Footer rule near bottom
+        // Header Title (Accent colored or Heading colored)
         drawRoundRect(
-            color = pal.accent.copy(alpha = 0.8f),
-            topLeft = Offset(padX, h - h * 0.12f),
-            size = Size(contentW, lineH * 0.8f),
-            cornerRadius = CornerRadius(lineH * 0.4f, lineH * 0.4f)
+            color = pal.heading,
+            topLeft = Offset(0f, 0f),
+            size = Size(width * 0.7f, 8.dp.toPx()),
+            cornerRadius = corner
+        )
+
+        // Accent divider
+        drawRoundRect(
+            color = pal.accent,
+            topLeft = Offset(0f, 14.dp.toPx()),
+            size = Size(width * 0.3f, 2.dp.toPx()),
+            cornerRadius = corner
+        )
+
+        // Paragraph 1 (Body colored)
+        var currentY = 24.dp.toPx()
+        val lineHeight = 4.dp.toPx()
+        val lineSpacing = 3.dp.toPx()
+        val p1Lines = listOf(1.0f, 0.9f, 0.95f, 0.6f)
+        for (wRatio in p1Lines) {
+            drawRoundRect(
+                color = pal.body.copy(alpha = 0.6f),
+                topLeft = Offset(0f, currentY),
+                size = Size(width * wRatio, lineHeight),
+                cornerRadius = corner
+            )
+            currentY += lineHeight + lineSpacing
+        }
+
+        // Subheading
+        currentY += 6.dp.toPx()
+        drawRoundRect(
+            color = pal.heading.copy(alpha = 0.8f),
+            topLeft = Offset(0f, currentY),
+            size = Size(width * 0.5f, 6.dp.toPx()),
+            cornerRadius = corner
+        )
+        currentY += 6.dp.toPx() + 6.dp.toPx()
+
+        // Bullet points
+        val bulletRadius = 1.5.dp.toPx()
+        for (i in 0..2) {
+            drawCircle(
+                color = pal.accent,
+                radius = bulletRadius,
+                center = Offset(bulletRadius, currentY + (lineHeight / 2))
+            )
+            drawRoundRect(
+                color = pal.body.copy(alpha = 0.6f),
+                topLeft = Offset(8.dp.toPx(), currentY),
+                size = Size(width * 0.75f, lineHeight),
+                cornerRadius = corner
+            )
+            currentY += lineHeight + lineSpacing + 2.dp.toPx()
+        }
+        
+        // Footer divider
+        drawRoundRect(
+            color = pal.accent.copy(alpha = 0.5f),
+            topLeft = Offset(0f, height - 2.dp.toPx()),
+            size = Size(width, 1.dp.toPx()),
+            cornerRadius = corner
         )
     }
 }

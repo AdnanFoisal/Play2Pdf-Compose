@@ -17,50 +17,47 @@ import androidx.compose.ui.graphics.Color
  * anywhere else.
  */
 object BrandColors {
-    // Primary brand — violet family, locked from mockups
-    val Brand = Color(0xFFa78bfa)         // violet, primary accent (--purple)
-    val BrandStrong = Color(0xFF8b5cf6)   // violet-glow, pressed/active (--purple-strong)
-    val BrandDeep = Color(0xFF7c3aed)     // gradient start (--grad stop 0)
-    val BrandMid = Color(0xFF6d5cf0)      // gradient middle (--grad stop 45%)
-    val BrandGradEnd = Color(0xFF3b82f6)  // gradient end, blue (--grad stop 100%)
+    // Primary brand — Spotify Green family
+    val Brand = Color(0xFF1DB954)         // Spotify Green, primary accent
+    val BrandStrong = Color(0xFF1ED760)   // Spotify hover/bright green
+    val BrandDeep = Color(0xFF12873B)     // darker green gradient start
+    val BrandMid = Color(0xFF18A048)      // gradient middle
+    val BrandGradEnd = Color(0xFF00D1FF)  // vibrant cyan for gradient ends (playful contrast)
 
-    // Brand gradient stops (used by PrimaryButton + neonGlow + Compile button)
+    // Brand gradient stops
     val BrandGradientStart = BrandDeep
     val BrandGradientEnd = BrandGradEnd
 
-    // Surfaces — dark palette locked from mockups (home bg / cards / rows)
-    val Surface0 = Color(0xFF0a0a12)      // app background (--bg, home)
-    val Surface1 = Color(0xFF14141e)      // cards (--card)
-    val Surface2 = Color(0xFF1b1b27)      // card rows (--card-row)
-    val Surface3 = Color(0xFF121829)      // history cards (--card-bg history)
+    // Surfaces — slightly cooler/deeper dark mode to make green pop
+    val Surface0 = Color(0xFF080C0A)      // app background
+    val Surface1 = Color(0xFF121B15)      // cards
+    val Surface2 = Color(0xFF18241C)      // card rows
+    val Surface3 = Color(0xFF0E1611)      // history cards
     val SurfaceBorder = Color(0x0FFFFFFF) // rgba(255,255,255,.06) hairlines
     val SurfaceBorderStrong = Color(0x1FFFFFFF) // rgba(255,255,255,.12) hover/active
 
-    // Unified deep base + per-screen atmospheric glow stops (Part A creative
-    // direction §1.1). Bg is the shared app base; the Glow* colors are used as
-    // radial-gradient stops placed differently per screen so each feels alive
-    // without fragmenting the palette.
-    val Bg = Color(0xFF08080F)            // unified app base (deeper than Surface0)
-    val GlowViolet = Color(0xFF1E1733)    // top radial atmosphere (Home, Settings)
-    val GlowIndigo = Color(0xFF101A2E)    // bottom-right radial (History)
-    val GlowDeep = Color(0xFF0B0A18)      // Compiling mid-stop
-    val CompilingBg = Color(0xFF060509)   // Compiling darkest base
-    val HistoryBg = Color(0xFF05070D)     // History base
+    // Unified deep base + per-screen atmospheric glow stops
+    val Bg = Color(0xFF060907)            // unified app base
+    val GlowViolet = Color(0xFF0D2415)    // top radial atmosphere (Home, Settings) - now GlowGreen
+    val GlowIndigo = Color(0xFF0A1F1E)    // bottom-right radial (History) - now GlowTeal
+    val GlowDeep = Color(0xFF07120A)      // Compiling mid-stop
+    val CompilingBg = Color(0xFF040705)   // Compiling darkest base
+    val HistoryBg = Color(0xFF050807)     // History base
 
-    // Text — locked from mockups
-    val TextPrimary = Color(0xFFF4f4f7)   // --text / --txt
-    val TextSecondary = Color(0xFF8a8a99) // --muted / --txt-2
-    val TextTertiary = Color(0xFF6f6f80)  // --muted-2 / --txt-3
-    val TextQuaternary = Color(0xFF646d84)// --txt-4 (history dates)
+    // Text
+    val TextPrimary = Color(0xFFFFFFFF)   // --text / --txt
+    val TextSecondary = Color(0xFFA1A1AA) // --muted / --txt-2
+    val TextTertiary = Color(0xFF71717A)  // --muted-2 / --txt-3
+    val TextQuaternary = Color(0xFF52525B)// --txt-4
 
-    // Status / accent colors — locked from mockups
-    val Gold = Color(0xFFf5b942)          // crown button (--gold)
-    val YtRed = Color(0xFFff1a1a)         // YouTube icon (--yt)
-    val Green = Color(0xFF22c55e)         // done step (--green)
-    val GreenDeep = Color(0xFF16a34a)     // done step gradient end
-    val Amber = Color(0xFFfbbf24)         // pro-tip card (--amber)
-    val Cyan = Color(0xFF22d3ee)          // progress ring comet / sparkline end
-    val Fuchsia = Color(0xFFc026d3)       // progress ring gradient start
+    // Status / accent colors
+    val Gold = Color(0xFFF5B942)
+    val YtRed = Color(0xFFFF0000)
+    val Green = Color(0xFF1DB954)         // done step uses brand green now
+    val GreenDeep = Color(0xFF12873B)
+    val Amber = Color(0xFFFBBF24)
+    val Cyan = Color(0xFF00D1FF)          // progress ring comet
+    val Fuchsia = Color(0xFF1ED760)       // progress ring gradient start (now bright green)
 
     // Status (kept for compatibility with existing code)
     val Success = Green

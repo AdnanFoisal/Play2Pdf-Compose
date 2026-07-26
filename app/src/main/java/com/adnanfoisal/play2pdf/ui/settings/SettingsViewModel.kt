@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -23,6 +23,8 @@ import javax.inject.Inject
 data class SettingsUiState(
     val settings: UserSettings = UserSettings(),
     val connectionStatus: ConnectionStatus = ConnectionStatus.Offline,
+    val youtubeStatus: ConnectionStatus = ConnectionStatus.Offline,
+    val geminiStatus: ConnectionStatus = ConnectionStatus.Offline,
     val testingConnection: Boolean = false,
     val savedMessage: String? = null
 )
@@ -34,11 +36,13 @@ class SettingsViewModel @Inject constructor(
     private val testConnectionUseCase: TestConnectionUseCase
 ) : ViewModel() {
 
-    val state: StateFlow<SettingsUiState> = combine(
+    val state: StateFlow<SettingsUiState> = kotlinx.coroutines.flow.combine(
         repo.settings,
-        connection.status
-    ) { s, cs ->
-        SettingsUiState(settings = s, connectionStatus = cs)
+        connection.status,
+        connection.youtubeStatus,
+        connection.geminiStatus
+    ) { s, cs, ys, gs ->
+        SettingsUiState(settings = s, connectionStatus = cs, youtubeStatus = ys, geminiStatus = gs)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -50,7 +54,10 @@ class SettingsViewModel @Inject constructor(
 
     init {
         // Kick off a connection test on first load so the indicator isn't stuck on "Offline".
-        viewModelScope.launch { testConnectionUseCase() }
+        viewModelScope.launch { 
+            val s = repo.settings.first()
+            testConnectionUseCase(s.youtubeApiKey, s.geminiApiKey) 
+        }
     }
 
     // --- Per-field setters with 500ms debounced save indicator ------------
@@ -75,7 +82,8 @@ class SettingsViewModel @Inject constructor(
 
     fun testConnection() {
         viewModelScope.launch {
-            testConnectionUseCase()
+            val s = repo.settings.first()
+            testConnectionUseCase(s.youtubeApiKey, s.geminiApiKey)
         }
     }
 }

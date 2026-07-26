@@ -37,6 +37,7 @@ interface Play2PdfApi {
         @Body req: PlaylistMetaRequest
     ): Response<PlaylistMetaResponse>
 
+    @retrofit2.http.Streaming
     @POST("/generate_guide")
     suspend fun generateGuide(
         @Body req: GenerateGuideRequest

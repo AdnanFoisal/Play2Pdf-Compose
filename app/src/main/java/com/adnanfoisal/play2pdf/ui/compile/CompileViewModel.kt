@@ -49,7 +49,7 @@ data class CompileUiState(
     val topicInput: String = "",
     val subject: String = "",
     val author: String = "",
-    val selectedTheme: PdfTheme = PdfTheme.TufteScholar,
+    val selectedTheme: PdfTheme = PdfTheme.NordicFrost,
     val playlistUrlInput: String = "",
     val isExtractingTopics: Boolean = false,
     val isFetchingMeta: Boolean = false,

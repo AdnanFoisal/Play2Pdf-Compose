@@ -14,14 +14,19 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -75,17 +80,54 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_api_keys))
             Spacer(Modifier.height(Spacing.sm))
             PremiumCard(modifier = Modifier.fillMaxWidth()) {
+                var ytKeyVisible by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                var geminiKeyVisible by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
                 Column(modifier = Modifier.padding(Spacing.md), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     PremiumTextField(
                         value = s.youtubeApiKey,
                         onValueChange = viewModel::setYoutubeKey,
-                        label = stringResource(R.string.settings_yt_key_label)
+                        label = stringResource(R.string.settings_yt_key_label),
+                        visualTransformation = if (ytKeyVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            androidx.compose.material3.IconButton(onClick = { ytKeyVisible = !ytKeyVisible }) {
+                                Icon(
+                                    imageVector = if (ytKeyVisible) androidx.compose.material.icons.Icons.Filled.Visibility else androidx.compose.material.icons.Icons.Filled.VisibilityOff,
+                                    contentDescription = "Toggle visibility",
+                                    tint = BrandColors.TextSecondary
+                                )
+                            }
+                        }
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ConnectionStatusIndicator(status = state.youtubeStatus)
+                    }
                     PremiumTextField(
                         value = s.geminiApiKey,
                         onValueChange = viewModel::setGeminiKey,
-                        label = stringResource(R.string.settings_gemini_key_label)
+                        label = stringResource(R.string.settings_gemini_key_label),
+                        visualTransformation = if (geminiKeyVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            androidx.compose.material3.IconButton(onClick = { geminiKeyVisible = !geminiKeyVisible }) {
+                                Icon(
+                                    imageVector = if (geminiKeyVisible) androidx.compose.material.icons.Icons.Filled.Visibility else androidx.compose.material.icons.Icons.Filled.VisibilityOff,
+                                    contentDescription = "Toggle visibility",
+                                    tint = BrandColors.TextSecondary
+                                )
+                            }
+                        }
                     )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ConnectionStatusIndicator(status = state.geminiStatus)
+                    }
                 }
             }
             Spacer(Modifier.height(Spacing.lg))
@@ -106,11 +148,6 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         ConnectionStatusIndicator(status = state.connectionStatus)
-                        PrimaryButton(
-                            text = stringResource(R.string.settings_test_connection),
-                            onClick = { viewModel.testConnection() },
-                            variant = com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButtonVariant.Ghost
-                        )
                     }
                 }
             }
@@ -160,7 +197,27 @@ fun SettingsScreen(
                 }
             }
             Spacer(Modifier.height(Spacing.lg))
+            Spacer(Modifier.height(80.dp)) // Extra padding for the floating button
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+        }
+
+        // Floating Save Button
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.lg)
+                .padding(bottom = Spacing.lg)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+        ) {
+            PrimaryButton(
+                text = "Save Settings",
+                onClick = {
+                    viewModel.testConnection()
+                    // Feedback is handled in ViewModel / state
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

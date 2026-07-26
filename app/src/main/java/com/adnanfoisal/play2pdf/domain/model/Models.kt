@@ -40,25 +40,21 @@ data class PdfHistory(
     val topicCount: Int? = null
 )
 
-/** All 13 PDF themes the backend supports (matches server.py THEMES dict). */
 enum class PdfTheme(val apiName: String, val displayName: String) {
-    TufteScholar("tufte_scholar", "Tufte Scholar"),
-    PrincetonMath("princeton_math", "Princeton Math"),
-    MidnightTerminal("midnight_terminal", "Midnight Terminal"),
-    CambridgeEmerald("cambridge_emerald", "Cambridge Emerald"),
-    BauhausGeometric("bauhaus_geometric", "Bauhaus Geometric"),
-    SwissStark("swiss_stark", "Swiss Stark"),
-    OxfordBurgundy("oxford_burgundy", "Oxford Burgundy"),
-    DeepSpace("deep_space", "Deep Space"),
-    MitTech("mit_tech", "MIT Tech"),
-    WhartonLedger("wharton_ledger", "Wharton Ledger"),
-    SumiInk("sumi_ink", "Sumi Ink"),
-    RenaissanceGold("renaissance_gold", "Renaissance Gold"),
-    WarmSunsetDark("warm_sunset_dark", "Warm Sunset Dark");
+    // Light Themes
+    NordicFrost("nordic_frost", "Nordic Frost"),
+    VelvetDawn("velvet_dawn", "Velvet Dawn"),
+    MintBlueprint("mint_blueprint", "Mint Blueprint"),
+    GoldenEra("golden_era", "Golden Era"),
+    // Dark Themes
+    MidnightPurple("midnight_purple", "Midnight Purple"),
+    Cyberpunk2077("cyberpunk_2077", "Cyberpunk 2077"),
+    ObsidianCrimson("obsidian_crimson", "Obsidian Crimson"),
+    OceanicAbyss("oceanic_abyss", "Oceanic Abyss");
 
     companion object {
         fun fromApiName(name: String): PdfTheme =
-            entries.firstOrNull { it.apiName == name } ?: TufteScholar
+            entries.find { it.apiName == name } ?: NordicFrost
     }
 }
 
@@ -84,7 +80,7 @@ data class UserSettings(
     val backendUrl: String = "https://adnanfoisal-play2pdf.hf.space",
     val userName: String = "",
     val onboardingComplete: Boolean = false,
-    val selectedTheme: PdfTheme = PdfTheme.TufteScholar,
+    val selectedTheme: PdfTheme = PdfTheme.NordicFrost,
     val soundEnabled: Boolean = true,
     val hapticsEnabled: Boolean = true
 )

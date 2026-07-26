@@ -2,8 +2,9 @@ package com.adnanfoisal.play2pdf.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -51,23 +52,24 @@ object AppType {
     //   inter_regular / _medium / _semibold / _bold
     // Until then, Compose resolves the single variable TTF's wght axis.
 
-    /** Space Grotesk — display / headings. */
-    private val SpaceGrotesk: FontFamily = FontFamily(
-        Font(R.font.space_grotesk, FontWeight.Medium),
-        Font(R.font.space_grotesk, FontWeight.SemiBold),
-        Font(R.font.space_grotesk, FontWeight.Bold)
+    val provider = GoogleFont.Provider(
+        providerAuthority = "com.google.android.gms.fonts",
+        providerPackage = "com.google.android.gms",
+        certificates = R.array.com_google_android_gms_fonts_certs
     )
 
-    /** DM Sans — body text (to be replaced by Inter once B1 lands). */
-    private val DmSans: FontFamily = FontFamily(
-        Font(R.font.dm_sans, FontWeight.Normal),
-        Font(R.font.dm_sans, FontWeight.Medium),
-        Font(R.font.dm_sans, FontWeight.Bold)
+    val fontName = GoogleFont("Inter")
+
+    val InterFontFamily = FontFamily(
+        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Normal),
+        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Medium),
+        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.SemiBold),
+        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Bold)
     )
 
-    private val Sans: FontFamily = DmSans
+    private val Sans: FontFamily = InterFontFamily
     private val Mono: FontFamily = FontFamily.Monospace
-    private val Display: FontFamily = SpaceGrotesk
+    private val Display: FontFamily = InterFontFamily
 
     val display: TextStyle = TextStyle(
         fontFamily = Display,

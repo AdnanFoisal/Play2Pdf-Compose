@@ -67,7 +67,7 @@ fun Play2PdfNavHost() {
     ) {
         composable(Routes.Splash) {
             SplashScreen(
-                onNavigateNext = { route ->
+                onNavigate = { route ->
                     navController.navigate(route) {
                         popUpTo(Routes.Splash) { inclusive = true }
                     }
