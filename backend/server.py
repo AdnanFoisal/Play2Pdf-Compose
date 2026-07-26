@@ -234,7 +234,7 @@ def format_views(v: int) -> str:
 
 def truncate(text: str, n: int) -> str:
     text = text or ""
-    return text if len(text) <= n else text[: n - 1].rstrip() + "\u2026"
+    return text if len(text) <= n else text[: n - 1].rstrip() + ".."
 
 
 def fetch_videos(api_key: str, urls: list[str]) -> list[dict]:
@@ -298,7 +298,7 @@ class StudyGuidePDF(FPDF):
         super().__init__(orientation="L", unit="mm", format="A4")
         self.subject = subject
         self.theme = theme
-        self.set_auto_page_break(auto=True, margin=15)
+        self.set_auto_page_break(auto=False)  # Manual page breaks only — avoids blank pages
         self.set_margins(10, 10, 10)
         self.col_widths = [12, 12, 55, 95, 18, 18, 25, 25]
 
@@ -327,7 +327,7 @@ class StudyGuidePDF(FPDF):
         self.cell(CW[5], 8, "Views", border="TB", align="C")
         self.cell(CW[6], 8, "QR Code", border="TB", align="C")
         self.cell(CW[7], 8, "Watch", border="TB", align="C")
-        self.ln(8)
+        self.set_y(self.get_y() + 8)
 
 
 class QRCache:
@@ -597,7 +597,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
         pdf.set_x(30)
         pdf.set_font(theme["font_family"], "", 14)
         pdf.set_text_color(*theme["subtext"])
-        pdf.cell(0, 10, f"CURATED FOR: {req.author.upper()}", align="L", ln=True)
+        pdf.cell(0, 10, f"CURATED FOR: {req.author.upper()}", align="L")
 
         # Watermark at the bottom
         pdf.set_y(pdf.h - 30)
@@ -626,8 +626,9 @@ async def generate_guide(req: GenerationRequest, request: Request):
             f"Covered: {matched_topics_count}/{total_count} ({pct}%)   *   "
             f"Videos: {total_videos_matched}   *   Playlists: {len(req.playlist_urls)}"
         )
-        pdf.cell(0, 8, summary_text, align="C", fill=True, ln=True)
-        pdf.ln(4)
+        pdf.cell(0, 8, summary_text, align="C", fill=True)
+        pdf.set_y(pdf.get_y() + 8)
+        pdf.set_y(pdf.get_y() + 4)
 
         pdf.render_grid_headers()
         CW = pdf.col_widths
@@ -637,7 +638,8 @@ async def generate_guide(req: GenerationRequest, request: Request):
             for v_idx, vid in enumerate(res["videos"]):
                 row_counter += 1
                 row_height = 20
-                if pdf.will_page_break(row_height + 4):
+                # Manual page break: check if row + footer (15mm) fits
+                if pdf.get_y() + row_height + 15 > pdf.h:
                     pdf.add_page()
                     pdf.render_grid_headers()
 
@@ -657,20 +659,20 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.cell(CW[0], row_height, "[  ]", border="B", align="C")
                 idx_str = f"{topic_idx+1}" if len(res["videos"]) == 1 else f"{topic_idx+1}.{v_idx+1}"
                 pdf.cell(CW[1], row_height, idx_str, border="B", align="C")
-                topic_label = truncate(res["topic"], 26) if v_idx == 0 else f"  \u2514 {truncate(res['topic'], 24)}"
+                topic_label = truncate(res["topic"], 26) if v_idx == 0 else f"  > {truncate(res['topic'], 24)}"
                 pdf.cell(CW[2], row_height, topic_label, border="B")
 
                 x_col3 = pdf.get_x()
                 pdf.cell(CW[3], row_height, "", border="B")
                 pdf.set_xy(x_col3, row_y + 2)
                 pdf.set_font(theme["font_family"], "B", 9)
-                pdf.cell(CW[3], 5, truncate(vid["title"], 52), ln=True)
+                pdf.cell(CW[3], 5, truncate(vid["title"], 52))
 
                 pdf.set_xy(x_col3, row_y + 8)
                 pdf.set_font(theme["font_family"], "I", 7.5)
                 pdf.set_text_color(100, 110, 125)
                 note_text = f"Key Focus: {truncate(res['study_note'], 70)}" if res.get("study_note") else ""
-                pdf.cell(CW[3], 5, note_text, ln=True)
+                pdf.cell(CW[3], 5, note_text)
 
                 pdf.set_xy(x_col3 + CW[3], row_y)
                 pdf.set_font(theme["font_family"], "", 9)
@@ -688,14 +690,15 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.set_text_color(*theme["accent"])
                 pdf.set_font(theme["font_family"], "B", 9)
                 pdf.cell(CW[7], row_height, "Watch Link", border="B", align="C", link=vid["url"])
-                pdf.ln(row_height)
+                pdf.set_y(row_y + row_height)  # Advance Y manually — no auto page break
 
         # --- Unmatched Topics Appendix ---
         if unmatched_results:
             pdf.add_page()
             pdf.set_font(theme["font_family"], "B", 16)
             pdf.set_text_color(*theme["accent"])
-            pdf.cell(0, 12, "Unmatched Syllabus Topics", ln=True)
+            pdf.cell(0, 12, "Unmatched Syllabus Topics")
+            pdf.set_y(pdf.get_y() + 12)
             pdf.set_font(theme["font_family"], "", 10)
             pdf.set_text_color(*theme["paper_text"])
             pdf.multi_cell(
@@ -704,12 +707,13 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 "provided playlist(s). You may need to supplement your study guide with "
                 "external materials for these concepts:"
             )
-            pdf.ln(2)
+            pdf.set_y(pdf.get_y() + 2)
             pdf.set_font(theme["font_family"], "", 10)
             for res in unmatched_results:
-                if pdf.will_page_break(8):
+                if pdf.get_y() + 8 + 15 > pdf.h:
                     pdf.add_page()
-                pdf.cell(0, 7, f"-  {res['topic']}", ln=True)
+                pdf.cell(0, 7, f"-  {res['topic']}")
+                pdf.set_y(pdf.get_y() + 7)
 
         pdf_output = pdf.output(dest="S")
         pdf_bytes = pdf_output.encode("latin1") if isinstance(pdf_output, str) else bytes(pdf_output)
