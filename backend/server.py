@@ -439,12 +439,21 @@ async def extract_topics(req: ExtractTopicsRequest):
             f"Extract a deduplicated list of distinct syllabus/course topics covered. "
             f"Return a JSON array of topic strings only, no commentary."
         )
-        resp = model.generate_content(prompt)
+        from google.generativeai.types import GenerationConfig
+        resp = model.generate_content(
+            prompt,
+            generation_config=GenerationConfig(response_mime_type="application/json")
+        )
         cleaned = resp.text.strip()
+        if not cleaned:
+            return {"topics": []}
         if cleaned.startswith("```"):
             cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.MULTILINE)
         topics = json.loads(cleaned)
         return {"topics": topics}
+    except json.JSONDecodeError:
+        log.exception("extract_topics_json_decode_failed")
+        return {"topics": []}
     except HTTPException:
         raise
     except Exception as e:
