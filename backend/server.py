@@ -134,6 +134,59 @@ THEMES: dict[str, dict] = {
         "bg": (4, 15, 31), "accent": (0, 204, 255), "text": (240, 248, 255), "subtext": (100, 149, 237),
         "paper_bg": (10, 25, 47), "paper_text": (220, 235, 255), "paper_border": (30, 58, 138), "font_family": "Helvetica",
     },
+    # Classic Themes (Restored)
+    "tufte_scholar": {
+        "bg": (250, 248, 245), "accent": (181, 154, 87), "text": (31, 31, 31), "subtext": (100, 100, 100),
+        "paper_bg": (250, 248, 245), "paper_text": (31, 31, 31), "paper_border": (220, 215, 205), "font_family": "Times",
+    },
+    "princeton_math": {
+        "bg": (30, 58, 138), "accent": (249, 115, 22), "text": (255, 255, 255), "subtext": (200, 200, 200),
+        "paper_bg": (255, 255, 252), "paper_text": (30, 41, 59), "paper_border": (203, 213, 225), "font_family": "Times",
+    },
+    "midnight_terminal": {
+        "bg": (0, 0, 0), "accent": (57, 255, 20), "text": (0, 240, 255), "subtext": (0, 150, 150),
+        "paper_bg": (0, 0, 0), "paper_text": (57, 255, 20), "paper_border": (0, 240, 255), "font_family": "Courier",
+    },
+    "cambridge_emerald": {
+        "bg": (15, 76, 58), "accent": (212, 175, 55), "text": (254, 253, 249), "subtext": (150, 150, 150),
+        "paper_bg": (254, 253, 249), "paper_text": (15, 76, 58), "paper_border": (212, 175, 55), "font_family": "Times",
+    },
+    "bauhaus_geometric": {
+        "bg": (244, 241, 234), "accent": (230, 95, 43), "text": (0, 0, 0), "subtext": (100, 100, 100),
+        "paper_bg": (244, 241, 234), "paper_text": (0, 0, 0), "paper_border": (0, 0, 0), "font_family": "Helvetica",
+    },
+    "swiss_stark": {
+        "bg": (0, 0, 0), "accent": (220, 38, 38), "text": (255, 255, 255), "subtext": (150, 150, 150),
+        "paper_bg": (255, 255, 255), "paper_text": (0, 0, 0), "paper_border": (226, 232, 240), "font_family": "Helvetica",
+    },
+    "oxford_burgundy": {
+        "bg": (112, 26, 37), "accent": (245, 158, 11), "text": (253, 251, 247), "subtext": (150, 150, 150),
+        "paper_bg": (253, 251, 247), "paper_text": (112, 26, 37), "paper_border": (220, 205, 200), "font_family": "Times",
+    },
+    "deep_space": {
+        "bg": (11, 15, 25), "accent": (6, 182, 212), "text": (139, 92, 246), "subtext": (100, 100, 150),
+        "paper_bg": (11, 15, 25), "paper_text": (255, 255, 255), "paper_border": (139, 92, 246), "font_family": "Helvetica",
+    },
+    "mit_tech": {
+        "bg": (13, 148, 136), "accent": (107, 114, 128), "text": (255, 255, 255), "subtext": (200, 200, 200),
+        "paper_bg": (255, 255, 255), "paper_text": (13, 148, 136), "paper_border": (203, 213, 225), "font_family": "Helvetica",
+    },
+    "wharton_ledger": {
+        "bg": (15, 23, 42), "accent": (71, 85, 107), "text": (255, 255, 255), "subtext": (150, 150, 150),
+        "paper_bg": (255, 255, 255), "paper_text": (15, 23, 42), "paper_border": (226, 232, 240), "font_family": "Times",
+    },
+    "sumi_ink": {
+        "bg": (250, 250, 250), "accent": (194, 65, 12), "text": (43, 43, 43), "subtext": (100, 100, 100),
+        "paper_bg": (250, 250, 250), "paper_text": (43, 43, 43), "paper_border": (229, 229, 229), "font_family": "Times",
+    },
+    "renaissance_gold": {
+        "bg": (78, 54, 41), "accent": (197, 160, 89), "text": (243, 239, 224), "subtext": (150, 150, 150),
+        "paper_bg": (243, 239, 224), "paper_text": (78, 54, 41), "paper_border": (197, 160, 89), "font_family": "Times",
+    },
+    "warm_sunset_dark": {
+        "bg": (30, 21, 20), "accent": (255, 158, 100), "text": (232, 230, 227), "subtext": (150, 150, 150),
+        "paper_bg": (34, 27, 25), "paper_text": (232, 230, 227), "paper_border": (197, 90, 103), "font_family": "Helvetica",
+    },
 }
 
 MAX_VIDEOS_PER_TOPIC = 4

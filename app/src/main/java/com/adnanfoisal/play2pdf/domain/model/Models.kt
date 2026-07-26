@@ -50,7 +50,21 @@ enum class PdfTheme(val apiName: String, val displayName: String) {
     MidnightPurple("midnight_purple", "Midnight Purple"),
     Cyberpunk2077("cyberpunk_2077", "Cyberpunk 2077"),
     ObsidianCrimson("obsidian_crimson", "Obsidian Crimson"),
-    OceanicAbyss("oceanic_abyss", "Oceanic Abyss");
+    OceanicAbyss("oceanic_abyss", "Oceanic Abyss"),
+    // Classic Themes (Restored)
+    TufteScholar("tufte_scholar", "Tufte Scholar"),
+    PrincetonMath("princeton_math", "Princeton Math"),
+    MidnightTerminal("midnight_terminal", "Midnight Terminal"),
+    CambridgeEmerald("cambridge_emerald", "Cambridge Emerald"),
+    BauhausGeometric("bauhaus_geometric", "Bauhaus Geometric"),
+    SwissStark("swiss_stark", "Swiss Stark"),
+    OxfordBurgundy("oxford_burgundy", "Oxford Burgundy"),
+    DeepSpace("deep_space", "Deep Space"),
+    MitTech("mit_tech", "MIT Tech"),
+    WhartonLedger("wharton_ledger", "Wharton Ledger"),
+    SumiInk("sumi_ink", "Sumi Ink"),
+    RenaissanceGold("renaissance_gold", "Renaissance Gold"),
+    WarmSunsetDark("warm_sunset_dark", "Warm Sunset Dark");
 
     companion object {
         fun fromApiName(name: String): PdfTheme =
