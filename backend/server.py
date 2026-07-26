@@ -510,7 +510,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
             'gemini-3.6-flash',
             generation_config={
                 "response_mime_type": "application/json",
-                "max_output_tokens": 8192,
+                "max_output_tokens": 65536,
             }
         )
 
