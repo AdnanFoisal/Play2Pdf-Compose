@@ -435,11 +435,11 @@ VIDEO LIBRARY ({len(videos_payload)} videos):
 
 MATCHING INSTRUCTIONS — read carefully and follow every rule:
 
-RULE 1 — EXACT TOPIC IDENTIFICATION: For each topic T1..T{len(topics_list)}, identify the single most specific video that directly teaches that exact concept. Prefer the video whose title/description most closely names or paraphrases the topic. Do NOT match a video based on vague keyword overlap.
+RULE 1 — EXACT TOPIC IDENTIFICATION: For each topic T1..T{len(topics_list)}, find ALL videos that directly teach that specific concept. Prefer videos whose title/description most closely names or paraphrases the topic. Do NOT match a video based on vague keyword overlap.
 
-RULE 2 — ONE VIDEO PER TOPIC (DEFAULT): Assign exactly ONE video per topic. Only assign a second or third video if the topic is explicitly multi-part (e.g. "Insertion and Deletion in AVL Trees") and the single best video does not cover all parts. Maximum {MAX_VIDEOS_PER_TOPIC} videos total per topic.
+RULE 2 — MULTIPLE VIDEOS PER TOPIC ARE FINE: A single video often cannot fully cover a topic. You should assign 2-4 relevant videos per topic when available. Each additional video should cover a distinct sub-angle, example, or depth level that the others miss — do not pad with near-duplicates. Maximum {MAX_VIDEOS_PER_TOPIC} videos per topic.
 
-RULE 3 — ZERO REUSE ACROSS TOPICS: A video ID MUST NOT appear in the video_ids list of more than ONE topic. Each video should be assigned to at most one topic — the topic it matches BEST. If a video could plausibly match multiple topics, assign it only to the topic where it is the strongest fit, and find the next-best video for the other topics.
+RULE 3 — NO VIDEO REUSE ACROSS TOPICS (CRITICAL): A video ID MUST NOT appear under more than one topic. If a video could plausibly match multiple topics, assign it ONLY to the topic where it is the strongest and most specific fit. Then find the next-best alternative videos for the other topics. Every video belongs to exactly one topic.
 
 RULE 4 — QUALITY OVER QUANTITY: When choosing between candidate videos, prefer:
   (a) Videos whose title explicitly mentions the topic keyword.
