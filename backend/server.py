@@ -418,29 +418,60 @@ class QRCache:
 
 
 def build_prompt(topics_list: list[str], videos_payload: list[dict]) -> str:
-    return f"""You are an academic curriculum matching AI. Match each of the {len(topics_list)} syllabus topics to the most relevant YouTube video(s) from the provided list, to build a complete study guide.
+    # Build a numbered topic index to help the LLM differentiate topics precisely
+    topic_index = "\n".join(f"  T{i+1}: {t}" for i, t in enumerate(topics_list))
+    # Build a numbered video index with richer context for matching
+    video_index = "\n".join(
+        f"  V{i+1}: [{v['id']}] {v['title']} (dur={v['duration_seconds']}s, views={v['views']}) — {truncate(v['desc'], 200)}"
+        for i, v in enumerate(videos_payload)
+    )
+    return f"""You are a precise academic curriculum-matching engine. Your job is to map each syllabus topic to the BEST video(s) that actually teach that specific topic. Accuracy and uniqueness matter more than coverage — a wrong or repeated match is worse than no match.
 
-Topics ({len(topics_list)} items, in order): {json.dumps(topics_list)}
-Videos ({len(videos_payload)} items): {json.dumps(videos_payload)}
+TOPIC LIST ({len(topics_list)} topics):
+{topic_index}
 
-Matching Rules:
-1. Primary factor: direct semantic coverage of the topic's core concept in the video's title/description.
-2. A topic may be matched to ONE or MULTIPLE videos (max {MAX_VIDEOS_PER_TOPIC}). If a topic is broad, feel free to include several relevant videos that collectively cover it well.
-3. Quality preference: each video includes "duration_seconds" and "views". When multiple videos are similarly relevant, prefer substantive lecture-length videos over very short (<3 minute) teaser/intro clips, unless the short clip is clearly the best or only match.
-4. Avoid reusing the exact same video for many unrelated topics; only reuse a video across topics if it genuinely covers both (e.g. a combined "Big-O / Big-Omega / Big-Theta" lecture covering three separate notation topics is fine to reuse).
-5. Strictness: if no video meaningfully addresses the topic, set "video_ids": [], "confidence": "none", and "study_note": "No direct match found in playlist."
-6. Provide a 1-sentence, concise "study_note" per topic describing the key concept(s) the matched video(s) teach.
+VIDEO LIBRARY ({len(videos_payload)} videos):
+{video_index}
 
-Return a strict JSON array of exactly {len(topics_list)} objects, in the SAME ORDER as the topics list above:
+MATCHING INSTRUCTIONS — read carefully and follow every rule:
+
+RULE 1 — EXACT TOPIC IDENTIFICATION: For each topic T1..T{len(topics_list)}, find ALL videos that directly teach that specific concept. Prefer videos whose title/description most closely names or paraphrases the topic. Do NOT match a video based on vague keyword overlap.
+
+RULE 2 — MULTIPLE VIDEOS PER TOPIC ARE FINE: A single video often cannot fully cover a topic. You should assign 2-4 relevant videos per topic when available. Each additional video should cover a distinct sub-angle, example, or depth level that the others miss — do not pad with near-duplicates. Maximum {MAX_VIDEOS_PER_TOPIC} videos per topic.
+
+RULE 3 — NO VIDEO REUSE ACROSS TOPICS (CRITICAL): A video ID MUST NOT appear under more than one topic. If a video could plausibly match multiple topics, assign it ONLY to the topic where it is the strongest and most specific fit. Then find the next-best alternative videos for the other topics. Every video belongs to exactly one topic.
+
+RULE 4 — QUALITY OVER QUANTITY: When choosing between candidate videos, prefer:
+  (a) Videos whose title explicitly mentions the topic keyword.
+  (b) Substantive lecture-length videos (10+ minutes) over short clips, unless the short clip is the only direct match.
+  (c) Higher-view-count videos when relevance is otherwise equal (community validation).
+
+RULE 5 — BE STRICT ON MISMATCHES: If no video in the library meaningfully teaches the topic, you MUST set video_ids to an empty array [], confidence to "none", and study_note to "No direct match found in playlist." Do NOT force a weak match — a false match misleads the student more than a gap.
+
+RULE 6 — CONFIDENCE CALIBRATION:
+  - "high": The video title explicitly names the topic or a direct synonym.
+  - "medium": The video clearly covers the concept but may use different terminology.
+  - "low": The video touches on the topic tangentially or is part of a broader lecture.
+  - "none": No suitable video found.
+
+RULE 7 — STUDY NOTE: Write a precise 1-sentence note for each topic summarizing exactly what the matched video(s) teach about that specific topic. If no video matched, write "No direct match found in playlist."
+
+OUTPUT FORMAT — Return a strict JSON array of exactly {len(topics_list)} objects, in the SAME ORDER as the topic list (T1, T2, T3, ...):
 [
   {{
-    "topic": "Syllabus topic name",
-    "video_ids": ["video_id_1", "video_id_2"],
-    "confidence": "high|medium|low|none",
-    "study_note": "1 concise sentence summarizing what key concepts are taught."
-  }}
+    "topic": "T1 topic name exactly as listed above",
+    "video_ids": ["video_id_string"],
+    "confidence": "high",
+    "study_note": "Precise 1-sentence description of what this video teaches for this topic."
+  }},
+  ...
 ]
-Return ONLY the JSON array, no markdown fences, no commentary."""
+
+CRITICAL REMINDERS:
+- Every video_id must come from the V1..V{len(videos_payload)} list above — use the bracketed ID strings exactly.
+- NO video_id may appear in more than one topic's video_ids array.
+- If a topic genuinely has no match, use empty video_ids — do NOT reuse another topic's video.
+- Return ONLY the JSON array. No markdown fences, no commentary, no explanation."""
 
 
 def parse_ai_response(raw_text: str) -> list[dict]:
