@@ -425,7 +425,7 @@ def build_prompt(topics_list: list[str], videos_payload: list[dict]) -> str:
         f"  V{i+1}: [{v['id']}] {v['title']} (dur={v['duration_seconds']}s, views={v['views']}) — {truncate(v['desc'], 200)}"
         for i, v in enumerate(videos_payload)
     )
-    return f"""You are a precise academic curriculum-matching engine. Your job is to map each syllabus topic to the BEST video(s) that actually teach that specific topic. Accuracy and uniqueness matter more than coverage — a wrong or repeated match is worse than no match.
+    return f"""You are a precise academic curriculum-matching engine. Your job is to map each syllabus topic to the BEST video(s) that actually teach that specific topic. Accuracy and uniqueness matter more than coverage — a wrong or repeated match is worse than no match. Ensure that for each matched video, all relevant details (title, duration, views, description) are considered for the best fit.
 
 TOPIC LIST ({len(topics_list)} topics):
 {topic_index}
@@ -439,7 +439,7 @@ RULE 1 — EXACT TOPIC IDENTIFICATION: For each topic T1..T{len(topics_list)}, f
 
 RULE 2 — MULTIPLE VIDEOS PER TOPIC ARE FINE: A single video often cannot fully cover a topic. You should assign 2-4 relevant videos per topic when available. Each additional video should cover a distinct sub-angle, example, or depth level that the others miss — do not pad with near-duplicates. Maximum {MAX_VIDEOS_PER_TOPIC} videos per topic.
 
-RULE 3 — NO VIDEO REUSE ACROSS TOPICS (CRITICAL): A video ID MUST NOT appear under more than one topic. If a video could plausibly match multiple topics, assign it ONLY to the topic where it is the strongest and most specific fit. Then find the next-best alternative videos for the other topics. Every video belongs to exactly one topic.
+RULE 3 — NO VIDEO REUSE ACROSS TOPICS (CRITICAL): A video ID MUST NOT appear under more than one topic. If a video could plausibly match multiple topics, assign it ONLY to the topic where it is the strongest and most specific fit. Then find the next-best alternative videos for the other topics. Every video belongs to exactly one topic. This is crucial to avoid video repetition and ensure each topic has unique, relevant video content.
 
 RULE 4 — QUALITY OVER QUANTITY: When choosing between candidate videos, prefer:
   (a) Videos whose title explicitly mentions the topic keyword.
@@ -454,7 +454,7 @@ RULE 6 — CONFIDENCE CALIBRATION:
   - "low": The video touches on the topic tangentially or is part of a broader lecture.
   - "none": No suitable video found.
 
-RULE 7 — STUDY NOTE: Write a precise 1-sentence note for each topic summarizing exactly what the matched video(s) teach about that specific topic. If no video matched, write "No direct match found in playlist."
+RULE 7 — STUDY NOTE: Write a precise 1-sentence note for each topic summarizing exactly what the matched video(s) teach about that specific topic. This note should be concise and directly reflect the video's content in relation to the topic. If no video matched, write "No direct match found in playlist." Ensure the study note is always present and relevant.
 
 OUTPUT FORMAT — Return a strict JSON array of exactly {len(topics_list)} objects, in the SAME ORDER as the topic list (T1, T2, T3, ...):
 [
@@ -762,7 +762,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.cell(CW[0], row_height, "[  ]", border="B", align="C")
                 idx_str = f"{topic_idx+1}" if len(res["videos"]) == 1 else f"{topic_idx+1}.{v_idx+1}"
                 pdf.cell(CW[1], row_height, idx_str, border="B", align="C")
-                topic_label = truncate(sanitize_for_pdf(res["topic"]), 26) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res['topic']), 24)}"
+                topic_label = truncate(sanitize_for_pdf(res["topic"]), 50) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res["topic"]), 48)}"
                 pdf.cell(CW[2], row_height, topic_label, border="B")
 
                 x_col3 = pdf.get_x()
@@ -774,7 +774,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.set_xy(x_col3, row_y + 8)
                 pdf.set_font(theme["font_family"], "I", 7.5)
                 pdf.set_text_color(100, 110, 125)
-                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 70)}" if res.get("study_note") else ""
+                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 120)}" if res.get("study_note") else ""
                 pdf.cell(CW[3], 5, note_text)
 
                 pdf.set_xy(x_col3 + CW[3], row_y)
