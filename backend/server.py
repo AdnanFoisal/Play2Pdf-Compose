@@ -629,12 +629,17 @@ async def generate_guide(req: GenerationRequest, request: Request):
         if await request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
 
-        ai_by_topic = {m.get("topic"): m for m in ai_matches if isinstance(m, dict)}
+        # Robust matching: create a normalized lookup for AI matches
+        # This handles capitalization and spacing differences from the LLM.
+        def normalize(s: str) -> str:
+            return re.sub(r'\s+', '', str(s)).lower()
+            
+        ai_by_topic_norm = {normalize(m.get("topic", "")): m for m in ai_matches if isinstance(m, dict)}
 
         vid_dict = {v["id"]: v for v in all_videos}
         results = []
         for topic in topics_list:
-            match = ai_by_topic.get(topic, {})
+            match = ai_by_topic_norm.get(normalize(topic), {})
             raw_ids = match.get("video_ids") or []
             vids = []
             for vid_id in raw_ids[:MAX_VIDEOS_PER_TOPIC]:
@@ -754,7 +759,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.cell(CW[0], row_height, "[  ]", border="B", align="C")
                 idx_str = f"{topic_idx+1}" if len(res["videos"]) == 1 else f"{topic_idx+1}.{v_idx+1}"
                 pdf.cell(CW[1], row_height, idx_str, border="B", align="C")
-                topic_label = truncate(sanitize_for_pdf(res["topic"]), 26) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res['topic']), 24)}"
+                topic_label = truncate(sanitize_for_pdf(res["topic"]), 50) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res['topic']), 48)}"
                 pdf.cell(CW[2], row_height, topic_label, border="B")
 
                 x_col3 = pdf.get_x()
@@ -766,7 +771,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.set_xy(x_col3, row_y + 8)
                 pdf.set_font(theme["font_family"], "I", 7.5)
                 pdf.set_text_color(100, 110, 125)
-                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 70)}" if res.get("study_note") else ""
+                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 120)}" if res.get("study_note") else ""
                 pdf.cell(CW[3], 5, note_text)
 
                 pdf.set_xy(x_col3 + CW[3], row_y)
