@@ -116,7 +116,7 @@ fun PdfThemeMiniPreview(
                     ambientColor = Color.Black
                 )
                 .clip(AppShape.medium)
-                .background(pal.page)
+                .background(pal.pageBg)
                 .border(
                     width = if (selected) 2.dp else 1.dp,
                     color = ringColor,
@@ -138,44 +138,65 @@ fun PdfThemeMiniPreview(
 }
 
 /**
- * Draws a faithful miniature of a document page: title, heading rule, body
- * lines, an accent tag, and a footer rule — all in the theme's palette.
+ * Draws a faithful miniature of the PDF: the editorial COVER (top band -
+ * real cover background, title, subtext, accent geometry) above the
+ * study-grid PAGE (heading, body lines, bullets, footer rule) - so the
+ * user sees both surfaces the theme actually paints.
  */
 @Composable
 private fun MiniPageContent(pal: PdfThemePalette) {
     Canvas(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 12.dp, horizontal = 10.dp)
+            .padding(vertical = 8.dp, horizontal = 10.dp)
     ) {
         val width = size.width
         val height = size.height
         val corner = CornerRadius(2.dp.toPx(), 2.dp.toPx())
-
-        // Header Title (Accent colored or Heading colored)
-        drawRoundRect(
-            color = pal.heading,
-            topLeft = Offset(0f, 0f),
-            size = Size(width * 0.7f, 8.dp.toPx()),
-            cornerRadius = corner
-        )
-
-        // Accent divider
-        drawRoundRect(
-            color = pal.accent,
-            topLeft = Offset(0f, 14.dp.toPx()),
-            size = Size(width * 0.3f, 2.dp.toPx()),
-            cornerRadius = corner
-        )
-
-        // Paragraph 1 (Body colored)
-        var currentY = 24.dp.toPx()
         val lineHeight = 4.dp.toPx()
         val lineSpacing = 3.dp.toPx()
-        val p1Lines = listOf(1.0f, 0.9f, 0.95f, 0.6f)
-        for (wRatio in p1Lines) {
+
+        // --- Cover band (top ~30%) ---
+        val bandHeight = height * 0.30f
+        drawRoundRect(
+            color = pal.coverBg,
+            topLeft = Offset(0f, 0f),
+            size = Size(width, bandHeight),
+            cornerRadius = corner
+        )
+        drawRoundRect(
+            color = pal.coverText,
+            topLeft = Offset(width * 0.08f, bandHeight * 0.30f),
+            size = Size(width * 0.62f, 5.dp.toPx()),
+            cornerRadius = corner
+        )
+        drawRoundRect(
+            color = pal.coverSubtext,
+            topLeft = Offset(width * 0.08f, bandHeight * 0.30f + 8.dp.toPx()),
+            size = Size(width * 0.34f, 2.dp.toPx()),
+            cornerRadius = corner
+        )
+        // Accent geometry echo (the cover's concentric circles)
+        drawCircle(
+            color = pal.accent.copy(alpha = 0.55f),
+            radius = bandHeight * 0.28f,
+            center = Offset(width * 0.88f, bandHeight * 0.5f)
+        )
+
+        // --- Grid page (below the cover band) ---
+        var currentY = bandHeight + 10.dp.toPx()
+
+        drawRoundRect(
+            color = pal.accent,
+            topLeft = Offset(0f, currentY),
+            size = Size(width * 0.45f, 3.dp.toPx()),
+            cornerRadius = corner
+        )
+        currentY += 8.dp.toPx()
+
+        for (wRatio in listOf(1.0f, 0.92f, 0.65f)) {
             drawRoundRect(
-                color = pal.body.copy(alpha = 0.6f),
+                color = pal.pageText.copy(alpha = 0.65f),
                 topLeft = Offset(0f, currentY),
                 size = Size(width * wRatio, lineHeight),
                 cornerRadius = corner
@@ -183,40 +204,28 @@ private fun MiniPageContent(pal: PdfThemePalette) {
             currentY += lineHeight + lineSpacing
         }
 
-        // Subheading
-        currentY += 6.dp.toPx()
-        drawRoundRect(
-            color = pal.heading.copy(alpha = 0.8f),
-            topLeft = Offset(0f, currentY),
-            size = Size(width * 0.5f, 6.dp.toPx()),
-            cornerRadius = corner
-        )
-        currentY += 6.dp.toPx() + 6.dp.toPx()
-
-        // Bullet points
+        currentY += 5.dp.toPx()
         val bulletRadius = 1.5.dp.toPx()
-        for (i in 0..2) {
+        for (i in 0..1) {
             drawCircle(
                 color = pal.accent,
                 radius = bulletRadius,
                 center = Offset(bulletRadius, currentY + (lineHeight / 2))
             )
             drawRoundRect(
-                color = pal.body.copy(alpha = 0.6f),
+                color = pal.pageText.copy(alpha = 0.55f),
                 topLeft = Offset(8.dp.toPx(), currentY),
-                size = Size(width * 0.75f, lineHeight),
+                size = Size(width * 0.78f, lineHeight),
                 cornerRadius = corner
             )
             currentY += lineHeight + lineSpacing + 2.dp.toPx()
         }
-        
-        // Footer divider
+
         drawRoundRect(
-            color = pal.accent.copy(alpha = 0.5f),
+            color = pal.pageBorder,
             topLeft = Offset(0f, height - 2.dp.toPx()),
             size = Size(width, 1.dp.toPx()),
             cornerRadius = corner
         )
     }
 }
-

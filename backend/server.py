@@ -631,6 +631,39 @@ def health():
     return {"status": "ok", "version": "3.1", "themes": list(THEMES.keys())}
 
 
+@app.get("/themes")
+def themes():
+    """The real, server-authoritative theme palettes.
+
+    The in-app mini previews were hand-tuned in Kotlin and drifted from
+    the actual PDF output on 11 of 21 themes (e.g. princeton_math
+    previews white but its cover is deep blue #1E3A8A). Clients should
+    render previews from THIS endpoint — single source of truth.
+
+    Each theme exposes both surfaces the PDF actually paints: the cover
+    (bg/text/subtext/accent) and the grid page (paper_bg/paper_text/
+    paper_border/accent). Colours are [r, g, b] lists (0-255).
+    """
+    payload = {}
+    for name, t in THEMES.items():
+        payload[name] = {
+            "font_family": t["font_family"],
+            "cover": {
+                "bg": list(t["bg"]),
+                "text": list(t["text"]),
+                "subtext": list(t["subtext"]),
+                "accent": list(t["accent"]),
+            },
+            "page": {
+                "bg": list(t["paper_bg"]),
+                "text": list(t["paper_text"]),
+                "border": list(t["paper_border"]),
+                "accent": list(t["accent"]),
+            },
+        }
+    return {"version": "3.1", "themes": payload}
+
+
 @app.post("/extract_topics")
 async def extract_topics(req: ExtractTopicsRequest):
     try:
@@ -1045,6 +1078,11 @@ def v1_ping():
 @app_v1.get("/health")
 def v1_health():
     return health()
+
+
+@app_v1.get("/themes")
+def v1_themes():
+    return themes()
 
 
 @app_v1.post("/extract_topics")

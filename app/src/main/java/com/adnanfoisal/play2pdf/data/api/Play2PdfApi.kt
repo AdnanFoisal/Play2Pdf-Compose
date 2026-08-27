@@ -27,6 +27,9 @@ interface Play2PdfApi {
     @GET("/ping")
     suspend fun ping(): Response<PingResponse>
 
+    @GET("/themes")
+    suspend fun themes(): Response<ThemesResponse>
+
     @POST("/extract_topics")
     suspend fun extractTopics(
         @Body req: ExtractTopicsRequest

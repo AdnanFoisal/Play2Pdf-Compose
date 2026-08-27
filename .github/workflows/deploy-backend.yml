@@ -31,8 +31,12 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           if [ -z "$HF_TOKEN" ]; then
-            echo "HF_TOKEN not set — skipping deploy"
-            exit 0
+            # Loud, visible skip — the old silent `exit 0` made a missing
+            # secret look like a successful deploy (bit us on 2026-08-27:
+            # green checkmark, Space never updated).
+            echo "::error file=deploy-backend.yml::HF_TOKEN secret is not set — backend was NOT deployed. Add a write-access token under repo Settings > Secrets and variables > Actions."
+            echo "### ⚠️ Deploy skipped: HF_TOKEN secret missing" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
           python - <<'PY'
           import os
@@ -42,7 +46,7 @@ jobs:
               folder_path="backend",
               repo_id="adnanfoisal/play2pdf",
               repo_type="space",
-              ignore_patterns=["README.md", "*.pyc", "__pycache__/**"],
+              ignore_patterns=["README.md", "*.pyc", "__pycache__/**", "testoutput/**"],
           )
           print("Uploaded backend to HF Space")
           PY

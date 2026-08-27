@@ -66,3 +66,34 @@ data class GenerateGuideRequest(
 data class ApiError(
     @Json(name = "detail") val detail: String? = null
 )
+
+// --- GET /themes (server-authoritative theme palettes) ------------------------
+
+@JsonClass(generateAdapter = true)
+data class ThemesResponse(
+    @Json(name = "version") val version: String? = null,
+    @Json(name = "themes") val themes: Map<String, ServerTheme>
+)
+
+@JsonClass(generateAdapter = true)
+data class ServerTheme(
+    @Json(name = "font_family") val fontFamily: String,
+    @Json(name = "cover") val cover: ServerThemeSurface,
+    @Json(name = "page") val page: ServerThemePage
+)
+
+@JsonClass(generateAdapter = true)
+data class ServerThemeSurface(
+    @Json(name = "bg") val bg: List<Int>,
+    @Json(name = "text") val text: List<Int>,
+    @Json(name = "subtext") val subtext: List<Int>,
+    @Json(name = "accent") val accent: List<Int>
+)
+
+@JsonClass(generateAdapter = true)
+data class ServerThemePage(
+    @Json(name = "bg") val bg: List<Int>,
+    @Json(name = "text") val text: List<Int>,
+    @Json(name = "border") val border: List<Int>,
+    @Json(name = "accent") val accent: List<Int>
+)

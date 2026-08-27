@@ -51,12 +51,24 @@ def main():
     client = TestClient(server.app)
     failures = []
 
-    # --- liveness ---
+    # --- liveness + themes palette endpoint ---
     for path in ("/ping", "/health"):
         r = client.get(path)
         print(f"GET {path:15} -> {r.status_code} {r.json()}")
         if r.status_code != 200:
             failures.append(f"{path} returned {r.status_code}")
+
+    r = client.get("/themes")
+    body = r.json()
+    themes_map = body.get("themes", {})
+    print(f"GET /themes         -> {r.status_code} ({len(themes_map)} themes)")
+    if r.status_code != 200 or len(themes_map) != 21:
+        failures.append(f"/themes bad: {r.status_code} n={len(themes_map)}")
+    else:
+        pm = themes_map.get("princeton_math", {})
+        cover_bg = pm.get("cover", {}).get("bg")
+        if cover_bg != [30, 58, 138]:
+            failures.append(f"princeton_math cover bg wrong: {cover_bg}")
 
     # --- generate: newline-delimited topics incl. a comma-bearing topic ---
     req = {

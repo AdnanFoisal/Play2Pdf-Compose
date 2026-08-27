@@ -4,13 +4,16 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.adnanfoisal.play2pdf.data.repository.ThemeRepository
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * Application entry point.
  *
- * Registers the notification channel for "PDF ready" notifications and
- * serves as the Hilt application scope.
+ * Registers the notification channel for "PDF ready" notifications,
+ * kicks off a GET /themes refresh so PDF theme previews reflect the
+ * live server palettes, and serves as the Hilt application scope.
  *
  * Hilt graph is built lazily on first injection — see [com.adnanfoisal.play2pdf.di]
  * for the modules.
@@ -18,9 +21,12 @@ import dagger.hilt.android.HiltAndroidApp
 @HiltAndroidApp
 class Play2PdfApp : Application() {
 
+    @Inject lateinit var themeRepository: ThemeRepository
+
     override fun onCreate() {
         super.onCreate()
         registerNotificationChannel()
+        themeRepository.refresh()
     }
 
     /**
