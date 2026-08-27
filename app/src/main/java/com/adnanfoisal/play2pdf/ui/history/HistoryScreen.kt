@@ -375,7 +375,17 @@ private fun HistoryCard(
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.height(8.dp))
-                // Stats row — topics + videos
+                // Stats row — topics + videos (or playlists when the video
+                // total is unknown). Counts pluralise properly.
+                val topicCount = item.topicCount ?: item.topics.size
+                val topicLabel = "$topicCount ${if (topicCount == 1) "topic" else "topics"}"
+                val videoLabel = when (val vc = item.videoCount) {
+                    null -> {
+                        val pc = item.playlistUrls.size
+                        "$pc ${if (pc == 1) "playlist" else "playlists"}"
+                    }
+                    else -> "$vc ${if (vc == 1) "video" else "videos"}"
+                }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -387,7 +397,7 @@ private fun HistoryCard(
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "${item.topicCount ?: item.topics.size} topics",
+                        text = topicLabel,
                         color = BrandColors.TextTertiary,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
@@ -400,7 +410,7 @@ private fun HistoryCard(
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "${item.videoCount ?: item.playlistUrls.size} videos",
+                        text = videoLabel,
                         color = BrandColors.TextTertiary,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium

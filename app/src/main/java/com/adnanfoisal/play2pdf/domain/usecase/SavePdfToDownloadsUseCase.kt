@@ -8,6 +8,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -15,6 +17,9 @@ import javax.inject.Inject
  * Saves a compiled PDF to the user's Downloads folder via the MediaStore
  * API (Android 10+) or a direct file write (Android 9 and below, requires
  * WRITE_EXTERNAL_STORAGE).
+ *
+ * Suspends and runs on [Dispatchers.IO] — the file copy is blocking disk
+ * I/O and must never run on the main thread (ANR risk on large PDFs).
  *
  * Returns the [Uri] of the saved file so the caller can show an "Open"
  * or "Share" action.
@@ -24,15 +29,16 @@ import javax.inject.Inject
 class SavePdfToDownloadsUseCase @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    operator fun invoke(pdfFile: File, displayName: String): Uri? {
-        val resolved = if (displayName.endsWith(".pdf", ignoreCase = true)) displayName
-                       else "$displayName.pdf"
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            saveViaMediaStore(pdfFile, resolved)
-        } else {
-            saveLegacy(pdfFile, resolved)
+    suspend operator fun invoke(pdfFile: File, displayName: String): Uri? =
+        withContext(Dispatchers.IO) {
+            val resolved = if (displayName.endsWith(".pdf", ignoreCase = true)) displayName
+                           else "$displayName.pdf"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                saveViaMediaStore(pdfFile, resolved)
+            } else {
+                saveLegacy(pdfFile, resolved)
+            }
         }
-    }
 
     private fun saveViaMediaStore(pdfFile: File, displayName: String): Uri? {
         val resolver = context.contentResolver

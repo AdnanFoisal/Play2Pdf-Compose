@@ -103,7 +103,11 @@ class CompileRepository @Inject constructor(
                     subject = subject,
                     author = author,
                     playlistUrls = playlistUrls,
-                    topics = topics.joinToString(","),
+                    // Newline-delimited: a topic may legitimately contain a
+                    // comma ("Big-O, Big-Theta"). The backend splits on
+                    // newlines first and only falls back to commas for old
+                    // clients — never join with "," here.
+                    topics = topics.joinToString("\n"),
                     theme = theme.apiName
                 )
             )

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.adnanfoisal.play2pdf.BuildConfig
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.UserSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,8 +46,12 @@ class SettingsRepository @Inject constructor(
         val HapticsEnabled = booleanPreferencesKey("haptics_enabled")
     }
 
-    /** Default backend URL — matches the FastAPI app on HuggingFace Space. */
-    val defaultBackendUrl: String = "https://adnanfoisal-play2pdf.hf.space"
+    /**
+     * Default backend URL — the compile-time constant from build.gradle.kts
+     * (`DEFAULT_BACKEND_URL`), so debug and release builds can differ and
+     * there is exactly one hardcoded copy of the production host.
+     */
+    val defaultBackendUrl: String = BuildConfig.DEFAULT_BACKEND_URL
 
     /** Reactive stream of the user's full settings object. */
     val settings: Flow<UserSettings> = context.prefsDataStore.data.map { p ->

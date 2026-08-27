@@ -1,19 +1,21 @@
 package com.adnanfoisal.play2pdf.ui.compiling
 
+import android.content.Context
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.adnanfoisal.play2pdf.data.prefs.SettingsRepository
 import com.adnanfoisal.play2pdf.data.repository.CompileResult
+import com.adnanfoisal.play2pdf.data.repository.HistoryRepository
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
+import com.adnanfoisal.play2pdf.domain.model.PdfHistory
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.SharedCompileState
 import com.adnanfoisal.play2pdf.domain.usecase.CompileGuideUseCase
-import com.adnanfoisal.play2pdf.data.db.dao.HistoryDao
-import com.adnanfoisal.play2pdf.data.db.entity.HistoryEntity
-import com.adnanfoisal.play2pdf.data.db.Converters
 import com.adnanfoisal.play2pdf.domain.usecase.CompileState
 import com.adnanfoisal.play2pdf.domain.usecase.SavePdfToDownloadsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,7 +31,9 @@ data class CompilingUiState(
     val completedSteps: Set<CompileStep> = emptySet(),
     val pdfFile: File? = null,
     val pdfSizeBytes: Long? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** Row id of the history entry created on success; null until then. */
+    val historyId: Long? = null
 )
 
 sealed interface CompilingPhase {
@@ -44,12 +48,13 @@ class CompilingViewModel @Inject constructor(
     private val savePdf: SavePdfToDownloadsUseCase,
     private val settings: SettingsRepository,
     private val sharedCompileState: SharedCompileState,
-    private val historyDao: HistoryDao
+    private val historyRepository: HistoryRepository,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompilingUiState())
     val state: StateFlow<CompilingUiState> = _state.asStateFlow()
-    
+
     init {
         start()
     }
@@ -82,7 +87,8 @@ class CompilingViewModel @Inject constructor(
                 phase = CompilingPhase.InProgress,
                 errorMessage = null,
                 currentStep = CompileStep.Connecting,
-                completedSteps = emptySet()
+                completedSteps = emptySet(),
+                historyId = null
             )
         }
         start()
@@ -94,38 +100,59 @@ class CompilingViewModel @Inject constructor(
             val s = settings.settings.first()
             val displayName = "${s.userName.ifBlank { "study_guide" }}_${System.currentTimeMillis()}"
             val uri = savePdf(file, displayName)
-            
-            // Update history entity with the saved URI
-            val currentFile = _state.value.pdfFile
-            if (uri != null && currentFile != null) {
-                 val entity = HistoryEntity(
-                     subject = sharedCompileState.subject,
-                     author = sharedCompileState.author,
-                     playlistUrlsJson = Converters().fromStringList(sharedCompileState.playlistUrls),
-                     topicsJson = Converters().fromStringList(sharedCompileState.topics),
-                     theme = sharedCompileState.theme.name,
-                     createdAtEpochMs = System.currentTimeMillis(),
-                     pdfUri = uri.toString(),
-                     pdfSizeBytes = currentFile.length(),
-                     videoCount = null,
-                     topicCount = sharedCompileState.topics.size
-                 )
-                 historyDao.insert(entity)
+
+            // Re-point the existing history entry at the permanent MediaStore
+            // copy so it survives cache eviction. (The row was already created
+            // on success — see handleResult.)
+            val id = _state.value.historyId
+            if (uri != null && id != null) {
+                historyRepository.getById(id)?.let { entry ->
+                    historyRepository.update(entry.copy(pdfUri = uri.toString()))
+                }
             }
             onSaved(uri)
         }
     }
 
-    private fun handleResult(result: CompileResult) {
+    private suspend fun handleResult(result: CompileResult) {
         when (result) {
-            is CompileResult.Success -> _state.update {
-                it.copy(
-                    phase = CompilingPhase.Success,
-                    pdfFile = result.pdfFile,
-                    pdfSizeBytes = result.sizeBytes,
-                    currentStep = CompileStep.Done,
-                    completedSteps = it.completedSteps + CompileStep.Done
+            is CompileResult.Success -> {
+                // Persist to history the moment the compile succeeds — not only
+                // when the user taps "Save to Downloads". Routed through
+                // HistoryRepository so the 30-row cap actually applies.
+                val shareUri = FileProvider.getUriForFile(
+                    appContext,
+                    "${appContext.packageName}.fileprovider",
+                    result.pdfFile
                 )
+                val id = historyRepository.insert(
+                    PdfHistory(
+                        subject = sharedCompileState.subject,
+                        author = sharedCompileState.author,
+                        playlistUrls = sharedCompileState.playlistUrls,
+                        topics = sharedCompileState.topics,
+                        // PdfHistory carries the enum; the repository persists
+                        // theme.apiName (NOT theme.name) so History can decode it.
+                        theme = sharedCompileState.theme,
+                        createdAtEpochMs = System.currentTimeMillis(),
+                        // Shareable FileProvider URI for the cached PDF; swapped
+                        // for a MediaStore URI if the user saves to Downloads.
+                        pdfUri = shareUri.toString(),
+                        pdfSizeBytes = result.sizeBytes,
+                        videoCount = sharedCompileState.videoCount,
+                        topicCount = sharedCompileState.topics.size
+                    )
+                )
+                _state.update {
+                    it.copy(
+                        phase = CompilingPhase.Success,
+                        pdfFile = result.pdfFile,
+                        pdfSizeBytes = result.sizeBytes,
+                        historyId = id,
+                        currentStep = CompileStep.Done,
+                        completedSteps = it.completedSteps + CompileStep.Done
+                    )
+                }
             }
             is CompileResult.Failure -> _state.update {
                 it.copy(

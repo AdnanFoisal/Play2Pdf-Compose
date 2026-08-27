@@ -90,6 +90,13 @@ class CompileViewModel @Inject constructor(
         sharedCompileState.playlistUrls = s.playlists.map { it.url }
         sharedCompileState.topics = s.topics.map { it.text }
         sharedCompileState.theme = s.selectedTheme
+        // Only report a video total when every playlist's metadata is known —
+        // otherwise leave it null so History shows an honest "N playlists"
+        // instead of mislabelling the playlist count as videos.
+        sharedCompileState.videoCount =
+            s.playlists.mapNotNull { it.videoCount }
+                .takeIf { it.size == s.playlists.size && s.playlists.isNotEmpty() }
+                ?.sum()
     }
 
     init {
