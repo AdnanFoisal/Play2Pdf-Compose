@@ -80,6 +80,13 @@ lint/tmp/
 # macOS
 .DS_Store
 
+# Kotlin compiler session files (should never have been tracked)
+.kotlin/sessions/
+
+# Local build/junk artifacts
+test_out.pdf
+app/build/
+
 # Python (backend)
 __pycache__/
 *.py[cod]
@@ -89,3 +96,4 @@ venv/
 env/
 *.egg-info/
 .pytest_cache/
+backend/testoutput/
