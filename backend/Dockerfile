@@ -22,8 +22,9 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy the server code.
+# Copy the server code + vendored Noto fonts (embedded into PDFs — D1).
 COPY server.py .
+COPY fonts ./fonts
 
 # Make sure unhandled exceptions crash the container rather than silently
 # hanging — uvicorn's --no-access-log keeps our JSON request log as the

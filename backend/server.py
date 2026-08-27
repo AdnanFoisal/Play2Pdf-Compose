@@ -56,10 +56,14 @@ handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 logging.getLogger().handlers = [handler]
 log = logging.getLogger("play2pdf")
+# fpdf2 embeds fonts via fontTools, whose subsetter logs every subset at
+# INFO — pure noise in the HF Space log stream. Keep warnings only.
+logging.getLogger("fontTools.subset").setLevel(logging.WARNING)
+logging.getLogger("fontTools").setLevel(logging.WARNING)
 
 
 # --- FastAPI app + middleware ------------------------------------------------
-app = FastAPI(title="Play2PDF API", version="3.0")
+app = FastAPI(title="Play2PDF API", version="3.1")
 
 # CORS allow-list — the Android app's package name (sent as Origin) plus
 # localhost for local dev. We can't whitelist by package name at the HTTP
@@ -169,7 +173,7 @@ THEMES: dict[str, dict] = {
     },
     "mit_tech": {
         "bg": (13, 148, 136), "accent": (107, 114, 128), "text": (255, 255, 255), "subtext": (200, 200, 200),
-        "paper_bg": (255, 255, 255), "paper_text": (13, 148, 136), "paper_border": (203, 213, 225), "font_family": "Helvetica",
+        "paper_bg": (255, 255, 255), "paper_text": (52, 58, 66), "paper_border": (203, 213, 225), "font_family": "Helvetica",
     },
     "wharton_ledger": {
         "bg": (15, 23, 42), "accent": (71, 85, 107), "text": (255, 255, 255), "subtext": (150, 150, 150),
@@ -290,6 +294,11 @@ def sanitize_for_pdf(text: str) -> str:
     the Latin-1 character set. YouTube titles and AI-generated notes often
     contain em-dashes, smart quotes, and other Unicode that would crash
     the PDF serialization step.
+
+    NOTE (D1): the renderer now embeds Noto fonts and calls
+    [prepare_text] instead — which applies these replacements and then
+    per-glyph '?' substitution ONLY for characters the chosen font lacks.
+    This function remains the ASCII-mapping table both paths share.
     """
     if not text:
         return text
@@ -297,6 +306,127 @@ def sanitize_for_pdf(text: str) -> str:
         text = text.replace(char, replacement)
     # Final safety net: replace any remaining non-Latin-1 chars with '?'
     return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
+# --- Embedded Unicode fonts (D1) ------------------------------------------------
+# Vendored under backend/fonts/ — Noto families with real glyph coverage so
+# Bengali/Cyrillic/Greek titles render as text instead of '?' runs. PDFs
+# stay searchable + copyable; fpdf2 subsets the fonts per document.
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+
+_FONT_FILES: dict[str, dict[str, str]] = {
+    "sans": {
+        "": "NotoSans-Regular.ttf", "B": "NotoSans-Bold.ttf",
+        "I": "NotoSans-Regular.ttf", "BI": "NotoSans-Bold.ttf",  # no italic cut — upright substitution
+    },
+    "serif": {
+        "": "NotoSerif-Regular.ttf", "B": "NotoSerif-Bold.ttf",
+        "I": "NotoSerif-Regular.ttf", "BI": "NotoSerif-Bold.ttf",
+    },
+    "bengali": {
+        "": "NotoSansBengali-Regular.ttf", "B": "NotoSansBengali-Bold.ttf",
+        "I": "NotoSansBengali-Regular.ttf", "BI": "NotoSansBengali-Bold.ttf",
+    },
+}
+
+# Bengali block. (Devanagari/Thamil etc. would need their own families —
+# out of scope; they degrade to '?' via prepare_text instead of crashing.)
+_BENGALI = (0x0980, 0x09FF)
+
+
+def register_fonts(pdf: FPDF) -> None:
+    """Register every embedded family/style once on the document."""
+    for family, styles in _FONT_FILES.items():
+        for style, fname in styles.items():
+            path = os.path.join(FONT_DIR, fname)
+            if os.path.exists(path):
+                pdf.add_font(family, style, path)
+
+
+def theme_font_family(theme: dict) -> str:
+    """Map a theme's legacy core-font hint to an embedded family.
+
+    'Times' (serif character) -> NotoSerif; Helvetica/Courier -> NotoSans.
+    """
+    return "serif" if theme.get("font_family") == "Times" else "sans"
+
+
+def font_for_text(text: str, base: str) -> str:
+    """Pick the family that actually covers the string's script."""
+    if any(_BENGALI[0] <= ord(c) <= _BENGALI[1] for c in (text or "")):
+        return "bengali"
+    return base
+
+
+def prepare_text(text: str, pdf: FPDF, family: str) -> str:
+    """Make *text* renderable in *family*: keep every glyph the font
+    actually covers (em-dashes, curly quotes, accents, Bengali... render
+    as themselves), ASCII-fold the ones it lacks (<=, ->, ...), and only
+    then fall back to '?' — never tofu.
+    """
+    if not text:
+        return text
+    font = pdf.fonts.get(family)
+    if font is None or not getattr(font, "cmap", None):
+        # Core-font document (no embedded family resolved) — full fold.
+        return sanitize_for_pdf(text)
+    cmap = font.cmap
+    out = []
+    for c in text:
+        if c in "\n\r\t" or ord(c) in cmap:
+            out.append(c)
+        else:
+            out.append(_UNICODE_REPLACEMENTS.get(c, "?"))
+    return "".join(out)
+
+
+# --- WCAG-safe derived colours (D3) ---------------------------------------------
+def _rel_lum(rgb: tuple[int, int, int]) -> float:
+    def f(v: int) -> float:
+        v = v / 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2])
+
+
+def contrast_ratio(fg: tuple[int, int, int], bg: tuple[int, int, int]) -> float:
+    la, lb = _rel_lum(fg), _rel_lum(bg)
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _blend(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def readable_on(
+    base: tuple[int, int, int], bg: tuple[int, int, int], target: float = 4.5
+) -> tuple[int, int, int]:
+    """Nudge *base* toward black or white (whichever is closer) until it
+    reaches *target* contrast on *bg*. Returns *base* unchanged if it
+    already passes. Preserves hue as much as possible.
+    """
+    if contrast_ratio(base, bg) >= target:
+        return base
+    dark_hit = light_hit = None  # (blend_t, colour)
+    for step in range(1, 21):
+        t = step / 20
+        cand = _blend(base, (0, 0, 0), t)
+        if contrast_ratio(cand, bg) >= target:
+            dark_hit = (t, cand)
+            break
+    for step in range(1, 21):
+        t = step / 20
+        cand = _blend(base, (255, 255, 255), t)
+        if contrast_ratio(cand, bg) >= target:
+            light_hit = (t, cand)
+            break
+    if dark_hit and light_hit:
+        return dark_hit[1] if dark_hit[0] <= light_hit[0] else light_hit[1]
+    if dark_hit:
+        return dark_hit[1]
+    if light_hit:
+        return light_hit[1]
+    return base
 
 
 def fetch_videos(api_key: str, urls: list[str]) -> list[dict]:
@@ -354,7 +484,7 @@ def fetch_videos(api_key: str, urls: list[str]) -> list[dict]:
     return all_videos
 
 
-# --- PDF generator (unchanged from v1) --------------------------------------
+# --- PDF generator ------------------------------------------------------------
 class StudyGuidePDF(FPDF):
     def __init__(self, subject: str, theme: dict):
         super().__init__(orientation="L", unit="mm", format="A4")
@@ -364,6 +494,23 @@ class StudyGuidePDF(FPDF):
         self.set_margins(10, 10, 10)
         self.col_widths = [12, 12, 55, 95, 18, 18, 25, 25]
 
+        # D1: embedded Unicode fonts + the theme's resolved base family.
+        register_fonts(self)
+        self.base_family = theme_font_family(theme)
+
+        # D3: WCAG-safe derived foregrounds — every text colour the renderer
+        # paints comes from this dict, and theme_text_pairs() derives the
+        # same values, so the audit can never drift from reality.
+        paper = theme["paper_bg"]
+        self.fg = {
+            "cover_title": readable_on(theme["text"], theme["bg"]),
+            "cover_sub":   readable_on(theme["subtext"], theme["bg"]),
+            "summary":     readable_on(theme["text"], theme["accent"]),
+            "header":      readable_on(theme["accent"], paper),
+            "body":        readable_on(theme["paper_text"], paper),
+            "link":        readable_on(theme["accent"], paper),
+        }
+
     def add_page(self, *args, **kwargs):
         super().add_page(*args, **kwargs)
         self.set_fill_color(*self.theme["paper_bg"])
@@ -371,15 +518,15 @@ class StudyGuidePDF(FPDF):
 
     def footer(self):
         self.set_y(-12)
-        self.set_font(self.theme["font_family"], "I", 8)
-        self.set_text_color(*self.theme["paper_text"])
-        self.cell(140, 10, self.subject, align="L")
+        self.set_font(font_for_text(self.subject, self.base_family), "I", 8)
+        self.set_text_color(*self.fg["body"])
+        self.cell(140, 10, prepare_text(self.subject, self, font_for_text(self.subject, self.base_family)), align="L")
         self.cell(0, 10, f"Page {self.page_no()}", align="R")
 
     def render_grid_headers(self):
         CW = self.col_widths
-        self.set_font(self.theme["font_family"], "B", 10)
-        self.set_text_color(*self.theme["accent"])
+        self.set_font(self.base_family, "B", 10)
+        self.set_text_color(*self.fg["header"])
         self.set_draw_color(*self.theme["paper_border"])
         self.cell(CW[0], 8, "[ ]", border="TB", align="C")
         self.cell(CW[1], 8, "#", border="TB", align="C")
@@ -475,13 +622,13 @@ async def log_requests(request: Request, call_next):
 # --- Endpoints (v1, kept at root for backwards-compat) ----------------------
 @app.get("/ping")
 def ping():
-    return {"status": "awake", "version": "3.0"}
+    return {"status": "awake", "version": "3.1"}
 
 
 @app.get("/health")
 def health():
     """Uptime-monitoring endpoint — slightly richer than /ping."""
-    return {"status": "ok", "version": "3.0", "themes": list(THEMES.keys())}
+    return {"status": "ok", "version": "3.1", "themes": list(THEMES.keys())}
 
 
 @app.post("/extract_topics")
@@ -551,7 +698,6 @@ async def playlist_meta(req: PlaylistMetaRequest):
 
 @app.post("/generate_guide")
 async def generate_guide(req: GenerationRequest, request: Request):
-    qr_cache = QRCache()
     try:
         if await request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
@@ -576,7 +722,14 @@ async def generate_guide(req: GenerationRequest, request: Request):
             }
         )
 
-        topics_list = [t.strip() for t in req.topics.split(",") if t.strip()]
+        # Newline-delimited topics (current Android clients): a topic may
+        # itself contain a comma ("Big-O, Big-Theta"). Fall back to comma-
+        # splitting for old clients that send one comma-separated line.
+        if "\n" in req.topics:
+            candidates = req.topics.split("\n")
+        else:
+            candidates = req.topics.split(",")
+        topics_list = [t.strip() for t in candidates if t.strip()]
         if not topics_list:
             raise HTTPException(status_code=400, detail="No valid topics parsed from input.")
 
@@ -626,8 +779,53 @@ async def generate_guide(req: GenerationRequest, request: Request):
                     "confidence": "none",
                 })
 
-        theme = THEMES.get(req.theme, THEMES["nordic_frost"])
-        pdf = StudyGuidePDF(req.subject, theme)
+        pdf_bytes = render_guide_pdf(
+            subject=req.subject,
+            author=req.author,
+            playlist_urls=req.playlist_urls,
+            results=results,
+            theme_name=req.theme,
+        )
+
+        matched_results = [r for r in results if r["matched"]]
+        log.info(
+            "guide_generated",
+            extra={
+                "subject": req.subject,
+                "topics": len(results),
+                "matched": len(matched_results),
+                "videos": sum(len(r["videos"]) for r in matched_results),
+            },
+        )
+        return Response(content=pdf_bytes, media_type="application/pdf")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception("generate_guide_failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- PDF rendering (pure — exercised by test_themes.py for every theme) -----
+def render_guide_pdf(
+    subject: str,
+    author: str,
+    playlist_urls: list[str],
+    results: list[dict],
+    theme_name: str,
+) -> bytes:
+    """Render the study guide PDF from matched *results*.
+
+    Pure with respect to network and AI APIs — the endpoint handles the
+    YouTube + Gemini calls and hands over finished match data. This seam
+    is what test_themes.py exercises across all 21 themes.
+    """
+    theme = THEMES.get(theme_name, THEMES["nordic_frost"])
+    qr_cache = QRCache()
+    try:
+        pdf = StudyGuidePDF(subject, theme)
+        base = pdf.base_family
+        fg = pdf.fg
 
         # --- Editorial-Style Cover Page ---
         pdf.add_page()
@@ -640,40 +838,42 @@ async def generate_guide(req: GenerationRequest, request: Request):
         # Large concentric circles off-center
         for r in range(40, 160, 20):
             pdf.ellipse(pdf.w - 40 - r, pdf.h / 2 - r, r * 2, r * 2, "D")
-        
+
         # Diagonal accent lines
         pdf.set_line_width(2.0)
         pdf.line(pdf.w - 100, 0, pdf.w, 100)
         pdf.line(pdf.w - 120, 0, pdf.w, 120)
 
         # Title Block (Centered, elegant)
+        title_fam = font_for_text(subject, base)
         pdf.set_y(pdf.h / 2 - 30)
         pdf.set_x(0)
-        pdf.set_font(theme["font_family"], "B", 48)
-        pdf.set_text_color(*theme["text"])
-        pdf.cell(0, 20, sanitize_for_pdf(req.subject.upper()), align="C")
-        
+        pdf.set_font(title_fam, "B", 48)
+        pdf.set_text_color(*fg["cover_title"])
+        pdf.cell(0, 20, prepare_text(subject.upper(), pdf, title_fam), align="C")
+
+        author_fam = font_for_text(author, base)
         pdf.set_y(pdf.h / 2 + 5)
         pdf.set_x(0)
-        pdf.set_font(theme["font_family"], "", 16)
-        pdf.set_text_color(*theme["subtext"])
-        pdf.cell(0, 10, f"PREPARED FOR: {sanitize_for_pdf(req.author.upper())}", align="C")
+        pdf.set_font(author_fam, "", 16)
+        pdf.set_text_color(*fg["cover_sub"])
+        pdf.cell(0, 10, f"PREPARED FOR: {prepare_text(author.upper(), pdf, author_fam)}", align="C")
 
         # Bottom Border and Watermark
         pdf.set_draw_color(*theme["text"])
         pdf.set_line_width(0.3)
         pdf.line(40, pdf.h - 40, pdf.w - 40, pdf.h - 40)
-        
+
         pdf.set_y(pdf.h - 35)
         pdf.set_x(0)
-        pdf.set_font(theme["font_family"], "I", 10)
-        pdf.set_text_color(*theme["subtext"])
+        pdf.set_font(base, "I", 10)
+        pdf.set_text_color(*fg["cover_sub"])
         pdf.cell(0, 10, "Generated by Play2PDF Studio - The Intelligent Video Compiler", align="C")
 
         # --- Study Grid Page ---
         pdf.add_page()
         pdf.set_draw_color(*theme["paper_border"])
-        pdf.set_text_color(*theme["paper_text"])
+        pdf.set_text_color(*fg["body"])
 
         matched_results = [r for r in results if r["matched"]]
         unmatched_results = [r for r in results if not r["matched"]]
@@ -683,12 +883,12 @@ async def generate_guide(req: GenerationRequest, request: Request):
         total_videos_matched = sum(len(r["videos"]) for r in matched_results)
 
         pdf.set_fill_color(*theme["accent"])
-        pdf.set_text_color(*theme["text"])
-        pdf.set_font(theme["font_family"], "B", 10)
+        pdf.set_text_color(*fg["summary"])
+        pdf.set_font(base, "B", 10)
         summary_text = (
             f" STUDY TRACK METRICS  |  Topics: {total_count}   *   "
             f"Covered: {matched_topics_count}/{total_count} ({pct}%)   *   "
-            f"Videos: {total_videos_matched}   *   Playlists: {len(req.playlist_urls)}"
+            f"Videos: {total_videos_matched}   *   Playlists: {len(playlist_urls)}"
         )
         pdf.cell(0, 8, summary_text, align="C", fill=True)
         pdf.set_y(pdf.get_y() + 8)
@@ -710,37 +910,40 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 row_y = pdf.get_y()
 
                 if row_counter % 2 == 1:
-                    bg_r, bg_g, bg_b = theme["paper_bg"]
-                    alt = lambda c: max(0, c - 8) if c > 128 else min(255, c + 15)
-                    pdf.set_fill_color(alt(bg_r), alt(bg_g), alt(bg_b))
+                    alt_bg = alt_row_bg(theme["paper_bg"])
+                    pdf.set_fill_color(*alt_bg)
                     pdf.rect(10, row_y, sum(CW), row_height, "F")
 
                 pdf.set_xy(10, row_y)
-                pdf.set_font(theme["font_family"], "", 9)
-                pdf.set_text_color(*theme["paper_text"])
+                pdf.set_font(base, "", 9)
+                pdf.set_text_color(*fg["body"])
                 pdf.set_draw_color(*theme["paper_border"])
 
                 pdf.cell(CW[0], row_height, "[  ]", border="B", align="C")
                 idx_str = f"{topic_idx+1}" if len(res["videos"]) == 1 else f"{topic_idx+1}.{v_idx+1}"
                 pdf.cell(CW[1], row_height, idx_str, border="B", align="C")
-                topic_label = truncate(sanitize_for_pdf(res["topic"]), 26) if v_idx == 0 else f"  > {truncate(sanitize_for_pdf(res['topic']), 24)}"
+                topic_fam = font_for_text(res["topic"], base)
+                topic_label = truncate(prepare_text(res["topic"], pdf, topic_fam), 26) if v_idx == 0 else f"  > {truncate(prepare_text(res['topic'], pdf, topic_fam), 24)}"
+                pdf.set_font(topic_fam, "", 9)
                 pdf.cell(CW[2], row_height, topic_label, border="B")
 
                 x_col3 = pdf.get_x()
                 pdf.cell(CW[3], row_height, "", border="B")
+                title_fam2 = font_for_text(vid["title"], base)
                 pdf.set_xy(x_col3, row_y + 2)
-                pdf.set_font(theme["font_family"], "B", 9)
-                pdf.cell(CW[3], 5, truncate(sanitize_for_pdf(vid["title"]), 52))
+                pdf.set_font(title_fam2, "B", 9)
+                pdf.cell(CW[3], 5, truncate(prepare_text(vid["title"], pdf, title_fam2), 52))
 
                 pdf.set_xy(x_col3, row_y + 8)
-                pdf.set_font(theme["font_family"], "I", 7.5)
-                pdf.set_text_color(100, 110, 125)
-                note_text = f"Key Focus: {truncate(sanitize_for_pdf(res['study_note']), 70)}" if res.get("study_note") else ""
+                pdf.set_font(base, "I", 7.5)
+                pdf.set_text_color(*fg["body"])
+                note_raw = f"Key Focus: {res['study_note']}" if res.get("study_note") else ""
+                note_text = truncate(prepare_text(note_raw, pdf, base), 70)
                 pdf.cell(CW[3], 5, note_text)
 
                 pdf.set_xy(x_col3 + CW[3], row_y)
-                pdf.set_font(theme["font_family"], "", 9)
-                pdf.set_text_color(*theme["paper_text"])
+                pdf.set_font(base, "", 9)
+                pdf.set_text_color(*fg["body"])
 
                 pdf.cell(CW[4], row_height, vid["duration"], border="B", align="C")
                 pdf.cell(CW[5], row_height, format_views(vid["views"]), border="B", align="C")
@@ -751,20 +954,20 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 pdf.image(qr_path, x=x_qr + 4, y=row_y + 2, w=16, h=16)
 
                 pdf.set_xy(x_qr + CW[6], row_y)
-                pdf.set_text_color(*theme["accent"])
-                pdf.set_font(theme["font_family"], "B", 9)
+                pdf.set_text_color(*fg["link"])
+                pdf.set_font(base, "B", 9)
                 pdf.cell(CW[7], row_height, "Watch Link", border="B", align="C", link=vid["url"])
                 pdf.set_y(row_y + row_height)  # Advance Y manually — no auto page break
 
         # --- Unmatched Topics Appendix ---
         if unmatched_results:
             pdf.add_page()
-            pdf.set_font(theme["font_family"], "B", 16)
-            pdf.set_text_color(*theme["accent"])
+            pdf.set_font(base, "B", 16)
+            pdf.set_text_color(*fg["header"])
             pdf.cell(0, 12, "Unmatched Syllabus Topics")
             pdf.set_y(pdf.get_y() + 12)
-            pdf.set_font(theme["font_family"], "", 10)
-            pdf.set_text_color(*theme["paper_text"])
+            pdf.set_font(base, "", 10)
+            pdf.set_text_color(*fg["body"])
             pdf.multi_cell(
                 0, 6,
                 "The following topics could not be confidently matched to any video in the "
@@ -772,33 +975,51 @@ async def generate_guide(req: GenerationRequest, request: Request):
                 "external materials for these concepts:"
             )
             pdf.set_y(pdf.get_y() + 2)
-            pdf.set_font(theme["font_family"], "", 10)
+            pdf.set_font(base, "", 10)
             for res in unmatched_results:
                 if pdf.get_y() + 8 + 15 > pdf.h:
                     pdf.add_page()
-                pdf.cell(0, 7, f"-  {sanitize_for_pdf(res['topic'])}")
+                res_fam = font_for_text(res["topic"], base)
+                pdf.set_font(res_fam, "", 10)
+                pdf.cell(0, 7, f"-  {prepare_text(res['topic'], pdf, res_fam)}")
                 pdf.set_y(pdf.get_y() + 7)
 
-        pdf_output = pdf.output(dest="S")
-        pdf_bytes = pdf_output.encode("latin1") if isinstance(pdf_output, str) else bytes(pdf_output)
-        log.info(
-            "guide_generated",
-            extra={
-                "subject": req.subject,
-                "topics": total_count,
-                "matched": matched_topics_count,
-                "videos": total_videos_matched,
-            },
-        )
-        return Response(content=pdf_bytes, media_type="application/pdf")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.exception("generate_guide_failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        # fpdf2 >= 2.8 returns a bytearray directly (the old `dest="S"` call
+        # was deprecated in 2.2 and removed-direction since 2.8).
+        return bytes(pdf.output())
     finally:
         qr_cache.cleanup()
+
+
+def alt_row_bg(paper_bg: tuple[int, int, int]) -> tuple[int, int, int]:
+    """The zebra-stripe row background derived from paper_bg (grid loop)."""
+    def alt(c: int) -> int:
+        return max(0, c - 8) if c > 128 else min(255, c + 15)
+    return tuple(alt(c) for c in paper_bg)
+
+
+def theme_text_pairs(theme: dict) -> list[tuple[str, tuple[int, int, int], tuple[int, int, int]]]:
+    """Every fg/bg colour pair the renderer paints.
+
+    Mirrors StudyGuidePDF.fg exactly (same readable_on derivations) — the
+    WCAG audit in test_themes.py consumes this, so the audit can never
+    drift from what the renderer actually paints. Any new set_text_color
+    combo must appear in both places.
+    """
+    paper = theme["paper_bg"]
+    body = readable_on(theme["paper_text"], paper)
+    header = readable_on(theme["accent"], paper)
+    return [
+        ("cover_title",    readable_on(theme["text"], theme["bg"]), theme["bg"]),
+        ("cover_subtitle", readable_on(theme["subtext"], theme["bg"]), theme["bg"]),
+        ("summary_bar",    readable_on(theme["text"], theme["accent"]), theme["accent"]),
+        ("grid_header",    header,                                paper),
+        ("grid_body",      body,                                  paper),
+        ("grid_body_alt",  body,                                  alt_row_bg(paper)),
+        ("study_note",     body,                                  paper),
+        ("watch_link",     header,                                paper),
+        ("footer",         body,                                  paper),
+    ]
 
 
 # --- v3 endpoints (under /api/v1/) -----------------------------------------
@@ -807,7 +1028,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
 # callers. The Android Compose app uses the v1 endpoints for now (they're
 # the only ones currently deployed), but the v3 prefix is available for
 # opt-in.
-app_v1 = FastAPI(title="Play2PDF API v1", version="3.0")
+app_v1 = FastAPI(title="Play2PDF API v1", version="3.1")
 app_v1.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
