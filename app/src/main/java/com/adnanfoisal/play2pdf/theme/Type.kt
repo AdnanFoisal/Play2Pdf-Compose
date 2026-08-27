@@ -2,9 +2,8 @@ package com.adnanfoisal.play2pdf.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.googlefonts.GoogleFont
-import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -13,16 +12,16 @@ import com.adnanfoisal.play2pdf.R
 /**
  * Typography roles for Play2PDF.
  *
- * Type pairing locked from mockups (per IMPLEMENTATION_PLAN.md §Design Tokens):
- *  - Display / headings: **Space Grotesk** (weight 500/600/700)
- *  - Body: **DM Sans** (weight 400/500/700) — History screen also references
- *    Manrope; DM Sans is the primary, Manrope is the visual sibling and we
- *    don't ship a separate file.
+ * Type pairing per the design docs (docs/BRAND.md):
+ *  - Display / headings: **Space Grotesk**
+ *  - Body: **DM Sans**
  *
- * Both fonts are loaded as variable TTFs from `res/font/`. Compose picks the
- * correct weight instance via the `Font(resId, weight)` overload — for
- * variable fonts this resolves the `wght` axis, for static fonts it just
- * loads the file. Either way the API is identical.
+ * Both ship as variable TTFs in `res/font/` and are registered at every
+ * weight we use. NO downloadable fonts, no GoogleFont provider, no Play
+ * Services dependency, no first-run network fetch — the previous
+ * implementation pulled "Inter" via GMS downloadable fonts, which meant a
+ * fallback-to-Roboto flash on first paint and plain system sans on devices
+ * without Play Services. Bundled = identical rendering everywhere.
  *
  * 10 type roles:
  *  Display   — splash wordmark, hero numbers
@@ -44,32 +43,28 @@ object AppType {
 
     // FontFamily instances are built ONCE at object init — never inside a
     // @Composable getter (that allocates a new FontFamily on every
-    // recomposition, which is a real perf bug on animation-heavy screens).
+    // recomposition, a real perf bug on animation-heavy screens).
     //
-    // NOTE: weight-specific TTFs are delivered by Part B (B1). Once present,
-    // swap each Font(R.font.<family>, weight) to the matching weight file:
-    //   space_grotesk_medium / _semibold / _bold
-    //   inter_regular / _medium / _semibold / _bold
-    // Until then, Compose resolves the single variable TTF's wght axis.
+    // The TTFs are variable fonts: registering the same resource at each
+    // weight lets Compose resolve the wght axis per TextStyle weight.
 
-    val provider = GoogleFont.Provider(
-        providerAuthority = "com.google.android.gms.fonts",
-        providerPackage = "com.google.android.gms",
-        certificates = R.array.com_google_android_gms_fonts_certs
+    val SpaceGrotesk: FontFamily = FontFamily(
+        Font(R.font.space_grotesk, FontWeight.Normal),
+        Font(R.font.space_grotesk, FontWeight.Medium),
+        Font(R.font.space_grotesk, FontWeight.SemiBold),
+        Font(R.font.space_grotesk, FontWeight.Bold),
     )
 
-    val fontName = GoogleFont("Inter")
-
-    val InterFontFamily = FontFamily(
-        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Normal),
-        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Medium),
-        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.SemiBold),
-        Font(googleFont = fontName, fontProvider = provider, weight = FontWeight.Bold)
+    val DmSans: FontFamily = FontFamily(
+        Font(R.font.dm_sans, FontWeight.Normal),
+        Font(R.font.dm_sans, FontWeight.Medium),
+        Font(R.font.dm_sans, FontWeight.SemiBold),
+        Font(R.font.dm_sans, FontWeight.Bold),
     )
 
-    private val Sans: FontFamily = InterFontFamily
+    private val Sans: FontFamily = DmSans
     private val Mono: FontFamily = FontFamily.Monospace
-    private val Display: FontFamily = InterFontFamily
+    private val Display: FontFamily = SpaceGrotesk
 
     val display: TextStyle = TextStyle(
         fontFamily = Display,

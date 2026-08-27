@@ -956,14 +956,16 @@ private fun CompileButton(enabled: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(gradBrush)
+            // shadow BEFORE clip — after clip/background the shadow bounds
+            // are clipped away and the glow never renders.
             .shadow(
                 elevation = if (enabled) 12.dp else 0.dp,
                 shape = RoundedCornerShape(15.dp),
                 ambientColor = BrandColors.BrandMid,
                 spotColor = BrandColors.BrandMid
             )
+            .clip(RoundedCornerShape(15.dp))
+            .background(gradBrush)
             .pressScaleClickable(onClick = { if (enabled) onClick() }, enabled = enabled),
         contentAlignment = Alignment.Center
     ) {

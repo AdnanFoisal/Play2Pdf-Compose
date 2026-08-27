@@ -89,7 +89,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.animation)
-    implementation(libs.androidx.compose.ui.text.google.fonts)
+    // (ui-text-google-fonts removed in A2 — typography now uses the bundled
+    //  variable TTFs in res/font/, no downloadable-fonts provider needed.)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 

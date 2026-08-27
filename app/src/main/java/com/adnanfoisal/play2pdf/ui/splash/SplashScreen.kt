@@ -162,7 +162,7 @@ fun SplashScreen(
                     val iconH = 90f
                     
                     val gradient = Brush.linearGradient(
-                        colors = listOf(Color(0xFFFF512F), Color(0xFFDD2476)),
+                        colors = listOf(BrandColors.BrandDeep, BrandColors.BrandStrong),
                         start = Offset(cx - iconW, cy - iconH),
                         end = Offset(cx + iconW, cy + iconH)
                     )

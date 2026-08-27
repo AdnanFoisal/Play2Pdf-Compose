@@ -98,10 +98,13 @@ fun PremiumTextField(
                 .background(BrandColors.Surface0)
                 .border(width = 1.dp, color = borderColor, shape = AppShape.small)
         ) {
-            // Floating label
+            // Hint when empty: prefer the placeholder, fall back to the label.
+            // (Previously `if (value.isEmpty()) placeholder else label` sat
+            // INSIDE this empty-branch — the else was unreachable, so fields
+            // with only a label rendered as blank boxes with no hint.)
             if (value.isEmpty()) {
                 Text(
-                    text = if (value.isEmpty()) placeholder else label,
+                    text = placeholder.ifEmpty { label },
                     color = BrandColors.TextTertiary,
                     style = AppType.bodySmall,
                     modifier = Modifier

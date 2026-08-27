@@ -5,11 +5,9 @@ import androidx.compose.ui.graphics.Color
 /**
  * Brand palette + dark surface palette for Play2PDF.
  *
- * Values are locked from the HTML mockups in `mock assests/` (per
- * IMPLEMENTATION_PLAN.md §Design Tokens). The brand moved from the v2.0
- * placeholder `#7C5CFF` to the mockup-locked violet `#a78bfa` /
- * `#8b5cf6` family, with a blue gradient end `#3b82f6` used by the
- * Compile button and progress ring.
+ * CANONICAL BRAND: the green #1DB954 family (see docs/BRAND.md). This
+ * supersedes the violet #a78bfa/#8b5cf6 palette still described in the
+ * HTML mockups and older planning docs.
  *
  * All color references in composables MUST go through [MaterialTheme.colorScheme]
  * (which is built from these constants in [Play2PdfTheme]) or through these
@@ -17,9 +15,9 @@ import androidx.compose.ui.graphics.Color
  * anywhere else.
  */
 object BrandColors {
-    // Primary brand — Spotify Green family
-    val Brand = Color(0xFF1DB954)         // Spotify Green, primary accent
-    val BrandStrong = Color(0xFF1ED760)   // Spotify hover/bright green
+    // Primary brand — green family
+    val Brand = Color(0xFF1DB954)         // primary accent
+    val BrandStrong = Color(0xFF1ED760)   // hover/bright green
     val BrandDeep = Color(0xFF12873B)     // darker green gradient start
     val BrandMid = Color(0xFF18A048)      // gradient middle
     val BrandGradEnd = Color(0xFF00D1FF)  // vibrant cyan for gradient ends (playful contrast)
@@ -36,10 +34,11 @@ object BrandColors {
     val SurfaceBorder = Color(0x0FFFFFFF) // rgba(255,255,255,.06) hairlines
     val SurfaceBorderStrong = Color(0x1FFFFFFF) // rgba(255,255,255,.12) hover/active
 
-    // Unified deep base + per-screen atmospheric glow stops
+    // Unified deep base + per-screen atmospheric glow stops (green/teal,
+    // named for what they are under the canonical brand).
     val Bg = Color(0xFF060907)            // unified app base
-    val GlowViolet = Color(0xFF0D2415)    // top radial atmosphere (Home, Settings) - now GlowGreen
-    val GlowIndigo = Color(0xFF0A1F1E)    // bottom-right radial (History) - now GlowTeal
+    val GlowGreen = Color(0xFF0D2415)     // top radial atmosphere (Home, Settings)
+    val GlowTeal = Color(0xFF0A1F1E)      // bottom-right radial (History)
     val GlowDeep = Color(0xFF07120A)      // Compiling mid-stop
     val CompilingBg = Color(0xFF040705)   // Compiling darkest base
     val HistoryBg = Color(0xFF050807)     // History base
