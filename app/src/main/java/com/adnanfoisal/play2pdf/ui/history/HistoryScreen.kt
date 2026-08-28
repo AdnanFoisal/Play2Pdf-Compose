@@ -66,12 +66,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adnanfoisal.play2pdf.core.designsystem.components.EmptyState
 import com.adnanfoisal.play2pdf.core.designsystem.components.GhostIconButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
+import com.adnanfoisal.play2pdf.core.designsystem.components.ShimmerSkeleton
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.historyAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.PdfHistory
 import com.adnanfoisal.play2pdf.tokens.Motion
 import com.adnanfoisal.play2pdf.tokens.Spacing
+import com.adnanfoisal.play2pdf.theme.AppShape
 import com.adnanfoisal.play2pdf.theme.BrandColors
 import com.adnanfoisal.play2pdf.theme.HistoryCardAccents
 import java.text.SimpleDateFormat
@@ -153,7 +155,21 @@ fun HistoryScreen(
             }
             Spacer(Modifier.height(16.dp))
 
-            if (state.items.isEmpty() && !state.isLoading) {
+            if (state.isLoading) {
+                // A5: skeletons instead of a blank flash on first load.
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    repeat(3) {
+                        ShimmerSkeleton(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = AppShape.card,
+                            height = 104.dp
+                        )
+                    }
+                }
+            } else if (state.items.isEmpty()) {
                 EmptyState(
                     icon = AppIcons.Inbox,
                     title = "No study guides yet",

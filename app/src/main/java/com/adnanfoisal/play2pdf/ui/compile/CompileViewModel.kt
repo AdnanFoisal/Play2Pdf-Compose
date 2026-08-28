@@ -77,7 +77,8 @@ class CompileViewModel @Inject constructor(
     private val extractTopics: ExtractTopicsUseCase,
     private val fetchMeta: FetchPlaylistMetaUseCase,
     private val sharedCompileState: SharedCompileState,
-    private val historyDao: HistoryDao
+    private val historyDao: HistoryDao,
+    private val haptics: com.adnanfoisal.play2pdf.core.haptics.HapticsManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompileUiState())
@@ -189,7 +190,12 @@ class CompileViewModel @Inject constructor(
             }
             is CompileUiEvent.ThemeChanged -> {
                 _state.update { it.copy(selectedTheme = event.value) }
-                viewModelScope.launch { settings.setSelectedTheme(event.value) }
+                viewModelScope.launch {
+                    settings.setSelectedTheme(event.value)
+                    // A5: light tick on theme select (a meaningful selection,
+                    // not haptic spam on every button).
+                    haptics.light()
+                }
             }
             CompileUiEvent.ExtractTopics -> extractTopicsFromPlaylists()
             CompileUiEvent.DismissError -> _state.update { it.copy(error = null) }

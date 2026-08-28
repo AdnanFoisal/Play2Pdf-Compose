@@ -4,6 +4,10 @@ import android.content.Context
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.adnanfoisal.play2pdf.core.haptics.HapticsManager
+import com.adnanfoisal.play2pdf.core.notification.PdfReadyNotifier
+import com.adnanfoisal.play2pdf.core.sound.SoundEffect
+import com.adnanfoisal.play2pdf.core.sound.SoundManager
 import com.adnanfoisal.play2pdf.data.prefs.SettingsRepository
 import com.adnanfoisal.play2pdf.data.repository.CompileResult
 import com.adnanfoisal.play2pdf.data.repository.HistoryRepository
@@ -49,6 +53,9 @@ class CompilingViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val sharedCompileState: SharedCompileState,
     private val historyRepository: HistoryRepository,
+    private val haptics: HapticsManager,
+    private val sounds: SoundManager,
+    private val notifier: PdfReadyNotifier,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -61,6 +68,9 @@ class CompilingViewModel @Inject constructor(
 
     private fun start() {
         viewModelScope.launch {
+            // A5: medium tick when the compile actually starts (skip the
+            // cosmetic 'Connecting' step — no haptic spam).
+            var realStepTicked = false
             compileGuide(
                 sharedCompileState.subject,
                 sharedCompileState.author,
@@ -69,11 +79,18 @@ class CompilingViewModel @Inject constructor(
                 sharedCompileState.theme
             ).collect { state ->
                 when (state) {
-                    is CompileState.Step -> _state.update {
-                        it.copy(
-                            currentStep = state.step,
-                            completedSteps = it.completedSteps + state.step
-                        )
+                    is CompileState.Step -> {
+                        if (!realStepTicked && state.step != CompileStep.Connecting) {
+                            realStepTicked = true
+                            haptics.medium()
+                            sounds.play(SoundEffect.Tap)
+                        }
+                        _state.update {
+                            it.copy(
+                                currentStep = state.step,
+                                completedSteps = it.completedSteps + state.step
+                            )
+                        }
                     }
                     is CompileState.Result -> handleResult(state.outcome)
                 }
@@ -153,12 +170,21 @@ class CompilingViewModel @Inject constructor(
                         completedSteps = it.completedSteps + CompileStep.Done
                     )
                 }
+                // A5: the success moment — double-tick haptic, chime (no-op
+                // until sfx assets ship), and the "PDF ready" notification.
+                haptics.success()
+                sounds.play(SoundEffect.Success)
+                notifier.notify(sharedCompileState.subject.ifBlank { "Study guide" })
             }
-            is CompileResult.Failure -> _state.update {
-                it.copy(
-                    phase = CompilingPhase.Error,
-                    errorMessage = result.message
-                )
+            is CompileResult.Failure -> {
+                _state.update {
+                    it.copy(
+                        phase = CompilingPhase.Error,
+                        errorMessage = result.message
+                    )
+                }
+                haptics.error()
+                sounds.play(SoundEffect.Error)
             }
         }
     }

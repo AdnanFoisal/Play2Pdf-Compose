@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
+import com.adnanfoisal.play2pdf.core.designsystem.components.ShimmerSkeleton
 import com.adnanfoisal.play2pdf.ui.compile.components.PdfThemePreviewRow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +69,7 @@ import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.domain.model.Playlist
 import com.adnanfoisal.play2pdf.tokens.Spacing
+import com.adnanfoisal.play2pdf.theme.AppShape
 import com.adnanfoisal.play2pdf.theme.AppType
 import com.adnanfoisal.play2pdf.theme.BrandColors
 
@@ -748,11 +750,20 @@ private fun PlaylistRow(playlist: Playlist, isFetchingMeta: Boolean, onRemove: (
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = if (isFetchingMeta) "Loading\u2026" else "${playlist.videoCount ?: "?"} videos",
-                color = BrandColors.TextSecondary,
-                fontSize = 12.sp
-            )
+            if (isFetchingMeta) {
+                // A5: skeleton shimmer instead of a bare "Loading…" string.
+                ShimmerSkeleton(
+                    modifier = Modifier.width(72.dp),
+                    shape = AppShape.pill,
+                    height = 10.dp
+                )
+            } else {
+                Text(
+                    text = "${playlist.videoCount ?: "?"} videos",
+                    color = BrandColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
         }
         Icon(
             imageVector = Icons.Filled.MoreVert,

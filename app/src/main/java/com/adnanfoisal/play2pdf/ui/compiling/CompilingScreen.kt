@@ -67,6 +67,7 @@ import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButtonVariant
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.compilingAtmosphere
+import com.adnanfoisal.play2pdf.core.effects.errorShake
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
 import com.adnanfoisal.play2pdf.tokens.Motion
@@ -649,6 +650,8 @@ private fun ErrorContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // A5: shake when the error appears (0 -> -8 -> 8 -> -4 -> 4 -> 0)
+            .errorShake(trigger = errorMessage)
             .padding(horizontal = Spacing.xl, vertical = Spacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
