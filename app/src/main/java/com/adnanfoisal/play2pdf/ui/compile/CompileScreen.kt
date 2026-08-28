@@ -293,10 +293,10 @@ private fun StatsCard(stats: HomeStats, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(BrandColors.Surface1)
             .clickable { onClick() }
-            .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.SurfaceBorder, AppShape.card)
             .padding(18.dp)
     ) {
         Row(
@@ -661,9 +661,9 @@ private fun PlaylistsCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(BrandColors.Surface1)
-            .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.SurfaceBorder, AppShape.card)
             .padding(16.dp)
     ) {
         Column {
@@ -714,9 +714,9 @@ private fun PlaylistRow(playlist: Playlist, isFetchingMeta: Boolean, onRemove: (
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(13.dp))
+            .clip(AppShape.row)
             .background(BrandColors.Surface2)
-            .border(1.dp, BrandColors.SurfaceBorder.copy(alpha = 0.6f), RoundedCornerShape(13.dp))
+            .border(1.dp, BrandColors.SurfaceBorder.copy(alpha = 0.6f), AppShape.row)
             .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -724,7 +724,7 @@ private fun PlaylistRow(playlist: Playlist, isFetchingMeta: Boolean, onRemove: (
         Box(
             modifier = Modifier
                 .size(38.dp, 30.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .clip(AppShape.ytIcon)
                 .background(BrandColors.YtRed),
             contentAlignment = Alignment.Center
         ) {
@@ -789,9 +789,9 @@ private fun TopicsCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(BrandColors.Surface1)
-            .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.SurfaceBorder, AppShape.card)
             .padding(16.dp)
     ) {
         Column {
@@ -827,8 +827,8 @@ private fun TopicsCard(
                 Box(
                     modifier = Modifier
                         .size(42.dp, 40.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(13.dp))
+                        .clip(AppShape.row)
+                        .border(1.dp, BrandColors.SurfaceBorder, AppShape.row)
                         .pressScaleClickable(onClick = onAddTopic),
                     contentAlignment = Alignment.Center
                 ) {
@@ -854,11 +854,10 @@ private fun TopicsCard(
 private fun TopicPill(text: String, onRemove: () -> Unit) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(22.dp))
+            .clip(AppShape.pill22)
             .background(BrandColors.BrandStrong.copy(alpha = 0.05f))
-            .border(1.dp, BrandColors.BrandStrong.copy(alpha = 0.30f), RoundedCornerShape(22.dp))
-            .padding(horizontal = 18.dp, vertical = 9.dp)
-            .pressScaleClickable(onClick = onRemove),
+            .border(1.dp, BrandColors.BrandStrong.copy(alpha = 0.30f), AppShape.pill22)
+            .padding(start = 18.dp, top = 9.dp, bottom = 9.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -867,13 +866,23 @@ private fun TopicPill(text: String, onRemove: () -> Unit) {
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium
         )
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Filled.Close,
-            contentDescription = "Remove topic",
-            tint = BrandColors.TextSecondary,
-            modifier = Modifier.size(14.dp)
-        )
+        Spacer(Modifier.width(4.dp))
+        // B: only the ✕ removes the topic — the whole pill used to be a
+        // delete button, so reading a label could destroy it by accident.
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(AppShape.button)
+                .pressScaleClickable(onClick = onRemove, pressedScale = 0.7f),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Remove topic",
+                tint = BrandColors.TextSecondary,
+                modifier = Modifier.size(14.dp)
+            )
+        }
     }
 }
 
@@ -884,9 +893,9 @@ private fun PdfThemeRow(theme: PdfTheme, onChange: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(BrandColors.Surface1)
-            .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.SurfaceBorder, AppShape.card)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -900,9 +909,9 @@ private fun PdfThemeRow(theme: PdfTheme, onChange: () -> Unit) {
         Box(
             modifier = Modifier
                 .weight(1f)
-                .clip(RoundedCornerShape(11.dp))
+                .clip(AppShape.field)
                 .background(BrandColors.Surface2)
-                .border(1.dp, BrandColors.SurfaceBorder.copy(alpha = 0.6f), RoundedCornerShape(11.dp))
+                .border(1.dp, BrandColors.SurfaceBorder.copy(alpha = 0.6f), AppShape.field)
                 .padding(horizontal = 14.dp, vertical = 9.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -915,7 +924,7 @@ private fun PdfThemeRow(theme: PdfTheme, onChange: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(11.dp))
+                .clip(AppShape.field)
                 .background(BrandColors.BrandStrong.copy(alpha = 0.16f))
                 .pressScaleClickable(onClick = onChange)
                 .padding(horizontal = 16.dp, vertical = 9.dp)
@@ -971,11 +980,11 @@ private fun CompileButton(enabled: Boolean, onClick: () -> Unit) {
             // are clipped away and the glow never renders.
             .shadow(
                 elevation = if (enabled) 12.dp else 0.dp,
-                shape = RoundedCornerShape(15.dp),
+                shape = AppShape.button,
                 ambientColor = BrandColors.BrandMid,
                 spotColor = BrandColors.BrandMid
             )
-            .clip(RoundedCornerShape(15.dp))
+            .clip(AppShape.button)
             .background(gradBrush)
             .pressScaleClickable(onClick = { if (enabled) onClick() }, enabled = enabled),
         contentAlignment = Alignment.Center
@@ -1010,161 +1019,4 @@ private fun Badge(text: String) {
     ) {
         Text(text = text, color = BrandColors.Brand, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
-}
-
-// --- Bottom Sheets ---
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PlaylistUrlDialog(
-    initialValue: String,
-    onValueChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = BrandColors.Surface1,
-        dragHandle = { SheetHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-                .padding(bottom = Spacing.xl)
-        ) {
-            Text("Add Playlist", color = BrandColors.TextPrimary, style = AppType.title3)
-            Spacer(Modifier.height(Spacing.md))
-            PremiumTextField(
-                value = initialValue,
-                onValueChange = onValueChange,
-                label = "YouTube playlist URL",
-                placeholder = "https://youtube.com/playlist?list=\u2026"
-            )
-            Spacer(Modifier.height(Spacing.md))
-            PrimaryButton(text = "Add Playlist", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TopicInputDialog(
-    initialValue: String,
-    onValueChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = BrandColors.Surface1,
-        dragHandle = { SheetHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-                .padding(bottom = Spacing.xl)
-        ) {
-            Text("Add Topics (Batch Import)", color = BrandColors.TextPrimary, style = AppType.title3)
-            Spacer(Modifier.height(Spacing.xs))
-            Text(
-                "Paste multiple topics separated by commas or newlines. They will be added all at once.",
-                color = BrandColors.TextSecondary,
-                fontSize = 13.sp
-            )
-            Spacer(Modifier.height(Spacing.md))
-            androidx.compose.material3.OutlinedTextField(
-                value = initialValue,
-                onValueChange = onValueChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                placeholder = { Text("e.g. Photosynthesis, Cell division\nGenetics", color = BrandColors.TextSecondary) },
-                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BrandColors.Brand,
-                    unfocusedBorderColor = BrandColors.SurfaceBorder,
-                    focusedTextColor = BrandColors.TextPrimary,
-                    unfocusedTextColor = BrandColors.TextPrimary
-                )
-            )
-            Spacer(Modifier.height(Spacing.md))
-            PrimaryButton(text = "Add Topics", onClick = onConfirm, modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemePickerDialog(
-    themes: List<PdfTheme>,
-    selected: PdfTheme,
-    onSelect: (PdfTheme) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = BrandColors.Surface1,
-        dragHandle = { SheetHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-                .padding(bottom = Spacing.xl)
-        ) {
-            Text("PDF Theme", color = BrandColors.TextPrimary, style = AppType.title3)
-            Spacer(Modifier.height(Spacing.md))
-            PdfThemePreviewRow(
-                themes = themes,
-                selected = selected,
-                onSelect = onSelect,
-                compact = false
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AdvancedDialog(
-    subject: String,
-    author: String,
-    onSubjectChange: (String) -> Unit,
-    onAuthorChange: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = BrandColors.Surface1,
-        dragHandle = { SheetHandle() }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = Spacing.lg, vertical = Spacing.md)
-                .padding(bottom = Spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(Spacing.md)
-        ) {
-            Text("Book Details", color = BrandColors.TextPrimary, style = AppType.title3)
-            PremiumTextField(value = subject, onValueChange = onSubjectChange, label = "Subject")
-            PremiumTextField(value = author, onValueChange = onAuthorChange, label = "Author")
-            PrimaryButton(text = "Done", onClick = onDismiss, modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@Composable
-private fun SheetHandle() {
-    Box(
-        modifier = Modifier
-            .padding(top = Spacing.sm)
-            .size(40.dp, 4.dp)
-            .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
-            .background(BrandColors.SurfaceBorderStrong)
-    )
 }

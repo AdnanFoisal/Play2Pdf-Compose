@@ -69,9 +69,11 @@ import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.compilingAtmosphere
 import com.adnanfoisal.play2pdf.core.effects.errorShake
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
+import com.adnanfoisal.play2pdf.core.effects.rememberReduceMotion
 import com.adnanfoisal.play2pdf.domain.model.CompileStep
 import com.adnanfoisal.play2pdf.tokens.Motion
 import com.adnanfoisal.play2pdf.tokens.Spacing
+import com.adnanfoisal.play2pdf.theme.AppShape
 import com.adnanfoisal.play2pdf.theme.AppType
 import com.adnanfoisal.play2pdf.theme.BrandColors
 import com.adnanfoisal.play2pdf.ui.compiling.components.SuccessConfetti
@@ -99,6 +101,34 @@ fun CompilingScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    // B: cancel confirmation — the strings existed but were never wired.
+    var showCancelConfirm by remember { mutableStateOf(false) }
+    if (showCancelConfirm) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showCancelConfirm = false },
+            title = { Text(stringResource(R.string.compiling_cancel_confirm_title)) },
+            text = { Text(stringResource(R.string.compiling_cancel_confirm_body)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showCancelConfirm = false
+                    onCancel()
+                }) {
+                    Text(stringResource(R.string.compiling_cancel_confirm_yes),
+                        color = BrandColors.Error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showCancelConfirm = false }) {
+                    Text(stringResource(R.string.compiling_cancel_confirm_keep),
+                        color = BrandColors.TextSecondary)
+                }
+            },
+            containerColor = BrandColors.Surface1,
+            titleContentColor = BrandColors.TextPrimary,
+            textContentColor = BrandColors.TextSecondary
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -110,7 +140,7 @@ fun CompilingScreen(
             CompilingPhase.InProgress -> InProgressContent(
                 currentStep = state.currentStep,
                 completedSteps = state.completedSteps,
-                onCancel = onCancel
+                onCancel = { showCancelConfirm = true }
             )
             CompilingPhase.Success -> SuccessContent(
                 pdfFile = state.pdfFile,
@@ -168,8 +198,11 @@ private fun InProgressContent(
     val totalSteps = CompileStep.entries.size
     val rawProgress = completedSteps.size.toFloat() / totalSteps
     // Add a partial credit for the in-flight current step so the ring sits
-    // between the last completed step and the next one.
-    val progress = min(rawProgress + (1f / totalSteps) * 0.5f, 0.99f)
+    // between the last completed step and the next one. The ring reads the
+    // real completion (incl. Done) — only the in-flight estimate is capped.
+    val isDone = CompileStep.Done in completedSteps
+    val progress = if (isDone) 1f
+        else min(rawProgress + (1f / totalSteps) * 0.5f, 0.99f)
 
     Column(
         modifier = Modifier
@@ -266,10 +299,19 @@ private fun ProgressRing(progress: Float) {
         ),
         label = "ringPct"
     )
+    // B: honest label — "Almost there!" used to show even at 8%.
+    val ringLabel = when {
+        progress >= 1f -> "Finishing up!"
+        progress < 0.25f -> "Getting started\u2026"
+        progress < 0.55f -> "Working on it\u2026"
+        progress < 0.85f -> "Almost there!"
+        else -> "Just a moment\u2026"
+    }
 
-    // Aura breathing animation.
+    // Aura breathing animation — static frame when reduce-motion is on.
+    val reduceMotion = rememberReduceMotion()
     val infinite = rememberInfiniteTransition(label = "aura")
-    val auraScale by infinite.animateFloat(
+    val auraAnimated by infinite.animateFloat(
         initialValue = 0.97f,
         targetValue = 1.03f,
         animationSpec = infiniteRepeatable(
@@ -278,6 +320,7 @@ private fun ProgressRing(progress: Float) {
         ),
         label = "auraScale"
     )
+    val auraScale = if (reduceMotion) 1f else auraAnimated
 
     Box(
         modifier = Modifier.size(224.dp),
@@ -375,7 +418,7 @@ private fun ProgressRing(progress: Float) {
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Almost there!",
+                text = ringLabel,
                 color = BrandColors.TextSecondary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
@@ -427,14 +470,17 @@ private fun StepRow(step: TrackerStep, state: StepState, isLast: Boolean) {
             )
             if (state == StepState.Active) {
                 Spacer(Modifier.height(9.dp))
-                // Shimmer bar — animated gradient sweep
+                // Shimmer bar — animated gradient sweep (static at 0.5 when
+                // reduce-motion is on).
+                val reduceMotion = rememberReduceMotion()
                 val shimmerInfinite = rememberInfiniteTransition(label = "shimmer")
-                val shimmerX by shimmerInfinite.animateFloat(
+                val shimmerAnimated by shimmerInfinite.animateFloat(
                     initialValue = 0f,
                     targetValue = 1f,
                     animationSpec = infiniteRepeatable(tween(Motion.Durations.Shimmer, easing = LinearEasing)),
                     label = "shimmerX"
                 )
+                val shimmerX = if (reduceMotion) 0.5f else shimmerAnimated
                 Box(
                     modifier = Modifier
                         .width(150.dp)
@@ -513,19 +559,21 @@ private fun StepDot(state: StepState) {
 
 @Composable
 private fun ProTipCard() {
-    // Sheen sweep animation.
+    // Sheen sweep animation (parked off-card when reduce-motion is on).
+    val reduceMotion = rememberReduceMotion()
     val infinite = rememberInfiniteTransition(label = "sheen")
-    val sheenX by infinite.animateFloat(
+    val sheenAnimated by infinite.animateFloat(
         initialValue = -0.6f,
         targetValue = 1.6f,
         animationSpec = infiniteRepeatable(tween(Motion.Durations.Sheen, easing = LinearEasing)),
         label = "sheenX"
     )
+    val sheenX = if (reduceMotion) -2f else sheenAnimated
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
@@ -534,7 +582,7 @@ private fun ProTipCard() {
                     )
                 )
             )
-            .border(1.dp, BrandColors.Amber.copy(alpha = 0.16f), RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.Amber.copy(alpha = 0.16f), AppShape.card)
     ) {
         // Sheen overlay
         if (sheenX in -0.6f..1.6f) {

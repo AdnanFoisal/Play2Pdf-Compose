@@ -201,7 +201,10 @@ fun SettingsScreen(
             Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
         }
 
-        // Floating Save Button
+        // Floating action button.
+        // B: the label used to say "Save Settings" but the handler re-tests
+        // the connection (every field already auto-saves on edit) — honest
+        // label now, matching what it does.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -211,11 +214,8 @@ fun SettingsScreen(
                 .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             PrimaryButton(
-                text = "Save Settings",
-                onClick = {
-                    viewModel.testConnection()
-                    // Feedback is handled in ViewModel / state
-                },
+                text = stringResource(R.string.settings_test_connection),
+                onClick = { viewModel.testConnection() },
                 modifier = Modifier.fillMaxWidth()
             )
         }

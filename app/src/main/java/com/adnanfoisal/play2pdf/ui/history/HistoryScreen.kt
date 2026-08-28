@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.adnanfoisal.play2pdf.R
 import com.adnanfoisal.play2pdf.core.designsystem.components.EmptyState
 import com.adnanfoisal.play2pdf.core.designsystem.components.GhostIconButton
 import com.adnanfoisal.play2pdf.core.designsystem.components.PremiumTextField
@@ -93,6 +96,10 @@ fun HistoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Search + filter UI state (B wiring)
+    var searchOpen by remember { mutableStateOf(false) }
+    var filterMenuOpen by remember { mutableStateOf(false) }
 
     // State for rename dialog
     var renameTarget by remember { mutableStateOf<PdfHistory?>(null) }
@@ -142,14 +149,78 @@ fun HistoryScreen(
                     GhostIconButton(
                         icon = Icons.Filled.Search,
                         contentDescription = "Search",
-                        onClick = { /* TODO: expand search field */ },
-                        tint = BrandColors.TextSecondary
+                        onClick = { searchOpen = !searchOpen },
+                        tint = if (searchOpen) BrandColors.Brand else BrandColors.TextSecondary
                     )
-                    GhostIconButton(
-                        icon = Icons.Filled.Tune,
-                        contentDescription = "Filter",
-                        onClick = { /* TODO: open filter sheet */ },
-                        tint = BrandColors.TextSecondary
+                    // Filter: dropdown anchored to the button
+                    Box {
+                        GhostIconButton(
+                            icon = Icons.Filled.Tune,
+                            contentDescription = "Filter",
+                            onClick = { filterMenuOpen = true },
+                            tint = if (state.filter != HistoryFilter.All) BrandColors.Brand
+                                   else BrandColors.TextSecondary
+                        )
+                        DropdownMenu(
+                            expanded = filterMenuOpen,
+                            onDismissRequest = { filterMenuOpen = false },
+                            containerColor = BrandColors.Surface2
+                        ) {
+                            HistoryFilter.entries.forEach { f ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            f.label,
+                                            color = if (f == state.filter) BrandColors.Brand
+                                                    else BrandColors.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.setFilter(f)
+                                        filterMenuOpen = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Inline search field (B: the TODO stubs are gone — query + filter
+            // were already implemented in HistoryViewModel/HistoryDao).
+            androidx.compose.animation.AnimatedVisibility(
+                visible = searchOpen,
+                enter = androidx.compose.animation.expandVertically(),
+                exit = androidx.compose.animation.shrinkVertically()
+            ) {
+                PremiumTextField(
+                    value = state.query,
+                    onValueChange = viewModel::setQuery,
+                    label = "Search",
+                    placeholder = stringResource(R.string.history_search_placeholder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 22.dp, vertical = 4.dp)
+                )
+            }
+
+            // Active filter chip row (dismissable)
+            if (state.filter != HistoryFilter.All) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.AssistChip(
+                        onClick = { viewModel.setFilter(HistoryFilter.All) },
+                        label = { Text(state.filter.label, color = BrandColors.Brand) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Clear filter",
+                                tint = BrandColors.Brand,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     )
                 }
             }
@@ -352,9 +423,9 @@ private fun HistoryCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(AppShape.card)
             .background(BrandColors.Surface3)
-            .border(1.dp, BrandColors.SurfaceBorder, RoundedCornerShape(18.dp))
+            .border(1.dp, BrandColors.SurfaceBorder, AppShape.card)
             .pressScaleClickable(onClick = onCardClick)
     ) {
         // Left accent bar
