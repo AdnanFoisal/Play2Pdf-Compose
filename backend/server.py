@@ -40,6 +40,13 @@ import qrcode
 # --- Structured JSON logging -------------------------------------------------
 # HF Spaces aggregates stdout — JSON lines are easy to grep.
 class JsonFormatter(logging.Formatter):
+    """JSON lines with the record's `extra` fields preserved.
+
+    The old version dropped everything passed via `extra={...}` — the
+    method/path/status/ms request metrics documented in the README never
+    reached the logs.
+    """
+
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "ts": int(record.created),
@@ -47,9 +54,22 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": record.getMessage(),
         }
+        for key, value in record.__dict__.items():
+            if key not in (
+                "name", "msg", "args", "levelname", "levelno", "pathname",
+                "filename", "module", "exc_info", "exc_text", "stack_info",
+                "lineno", "funcName", "created", "msecs", "relativeCreated",
+                "thread", "threadName", "processName", "process", "taskName",
+                "message", "asctime",
+            ) and not key.startswith("_"):
+                try:
+                    json.dumps(value)
+                    payload[key] = value
+                except (TypeError, ValueError):
+                    payload[key] = repr(value)
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
-        return json.dumps(payload, ensure_ascii=False)
+        return json.dumps(payload, ensure_ascii=False, default=str)
 
 logging.basicConfig(level=logging.INFO)
 handler = logging.StreamHandler()
