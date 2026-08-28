@@ -106,34 +106,37 @@ def wcag_ratio(fg, bg) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
-def check_render(theme_name, keep_files):
-    """Render one theme; return list of HARD failure strings."""
+def check_render(theme_name, keep_files, layout="portrait"):
+    """Render one theme in one layout; return list of HARD failure strings."""
     failures = []
     try:
         pdf_bytes = render_guide_pdf(
             subject=SUBJECT, author=AUTHOR, playlist_urls=PLAYLISTS,
-            results=MOCK_RESULTS, theme_name=theme_name,
+            results=MOCK_RESULTS, theme_name=theme_name, layout=layout,
         )
     except Exception as e:  # noqa: BLE001 — any exception is a failure
-        return [f"render raised {type(e).__name__}: {e}"]
+        return [f"[{layout}] render raised {type(e).__name__}: {e}"]
 
     reader = PdfReader(io.BytesIO(pdf_bytes))
-    if len(reader.pages) < 2:
-        failures.append(f"only {len(reader.pages)} page(s), expected >= 2")
+    if len(reader.pages) < 3:
+        failures.append(f"[{layout}] only {len(reader.pages)} page(s), expected >= 3 (cover+contents+grid)")
 
     blank = [
         i for i, page in enumerate(reader.pages)
         if not (page.extract_text() or "").strip()
     ]
     if blank:
-        failures.append(f"blank page(s) at index {blank}")
+        failures.append(f"[{layout}] blank page(s) at index {blank}")
 
     all_text = "\n".join((p.extract_text() or "") for p in reader.pages)
     if SUBJECT.split(" & ")[0] not in all_text:
-        failures.append("subject text not extractable")
+        failures.append(f"[{layout}] subject text not extractable")
+    if layout == "portrait" and "Contents" not in all_text:
+        failures.append("[portrait] TOC page missing")
 
     if keep_files:
-        with open(os.path.join(OUT_DIR, f"{theme_name}.pdf"), "wb") as f:
+        suffix = "" if layout == "portrait" else f"_{layout}"
+        with open(os.path.join(OUT_DIR, f"{theme_name}{suffix}.pdf"), "wb") as f:
             f.write(pdf_bytes)
 
     return failures
@@ -168,14 +171,15 @@ def main():
     if keep:
         os.makedirs(OUT_DIR, exist_ok=True)
 
-    print(f"Rendering {len(THEMES)} themes...")
+    print(f"Rendering {len(THEMES)} themes x 2 layouts...")
     hard_failures = {}
-    for name in THEMES:
-        fails = check_render(name, keep)
-        status = "ok" if not fails else "FAIL"
-        print(f"  {status:4} {name}")
-        if fails:
-            hard_failures[name] = fails
+    for layout in ("portrait", "grid_landscape"):
+        for name in THEMES:
+            fails = check_render(name, keep, layout)
+            status = "ok" if not fails else "FAIL"
+            print(f"  {status:4} [{layout:15}] {name}")
+            if fails:
+                hard_failures[f"{name}/{layout}"] = fails
 
     print("\nContrast audit (WCAG AA 4.5:1)...")
     contrast = audit_contrast()

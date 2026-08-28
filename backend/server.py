@@ -205,6 +205,17 @@ class GenerationRequest(BaseModel):
     playlist_urls: list[str]
     topics: str
     theme: str
+    # "portrait" (default, v3.1 redesign) or "grid_landscape" (legacy
+    # pre-3.1 checklist grid). Optional so old clients change nothing.
+    layout: str = "portrait"
+
+    @field_validator("layout")
+    @classmethod
+    def _known_layout(cls, v):
+        v = (v or "portrait").strip().lower()
+        if v not in ("portrait", "grid_landscape"):
+            raise ValueError("layout must be 'portrait' or 'grid_landscape'")
+        return v
 
     @field_validator("playlist_urls")
     @classmethod
@@ -486,9 +497,11 @@ def fetch_videos(api_key: str, urls: list[str]) -> list[dict]:
 
 # --- PDF generator ------------------------------------------------------------
 class StudyGuidePDF(FPDF):
-    def __init__(self, subject: str, theme: dict):
-        super().__init__(orientation="L", unit="mm", format="A4")
-        self.subject = subject
+    def __init__(self, subject: str, theme: dict, orientation: str = "L"):
+        super().__init__(orientation=orientation, unit="mm", format="A4")
+        # NOT `self.subject` — fpdf2 stores document metadata in self.subject
+        # (set via set_subject), which would clobber the footer text.
+        self.guide_subject = subject
         self.theme = theme
         self.set_auto_page_break(auto=False)  # Manual page breaks only — avoids blank pages
         self.set_margins(10, 10, 10)
@@ -518,9 +531,10 @@ class StudyGuidePDF(FPDF):
 
     def footer(self):
         self.set_y(-12)
-        self.set_font(font_for_text(self.subject, self.base_family), "I", 8)
+        subj_fam = font_for_text(self.guide_subject, self.base_family)
+        self.set_font(subj_fam, "I", 8)
         self.set_text_color(*self.fg["body"])
-        self.cell(140, 10, prepare_text(self.subject, self, font_for_text(self.subject, self.base_family)), align="L")
+        self.cell(140, 10, prepare_text(self.guide_subject, self, subj_fam), align="L")
         self.cell(0, 10, f"Page {self.page_no()}", align="R")
 
     def render_grid_headers(self):
@@ -818,6 +832,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
             playlist_urls=req.playlist_urls,
             results=results,
             theme_name=req.theme,
+            layout=req.layout,
         )
 
         matched_results = [r for r in results if r["matched"]]
@@ -840,25 +855,51 @@ async def generate_guide(req: GenerationRequest, request: Request):
 
 
 # --- PDF rendering (pure — exercised by test_themes.py for every theme) -----
+
+def _set_pdf_metadata(pdf: FPDF, subject: str, author: str) -> None:
+    """D6 — proper document metadata (title/author show in viewers + search)."""
+    pdf.set_title(subject)
+    pdf.set_author(author)
+    pdf.set_creator("Play2PDF - The Intelligent Video Compiler")
+    pdf.set_subject("YouTube study guide")
+    pdf.set_keywords(f"{subject}, study guide, youtube, syllabus")
+
+
 def render_guide_pdf(
     subject: str,
     author: str,
     playlist_urls: list[str],
     results: list[dict],
     theme_name: str,
+    layout: str = "portrait",
 ) -> bytes:
     """Render the study guide PDF from matched *results*.
 
     Pure with respect to network and AI APIs — the endpoint handles the
     YouTube + Gemini calls and hands over finished match data. This seam
-    is what test_themes.py exercises across all 21 themes.
+    is what test_themes.py exercises across all 21 themes x 2 layouts.
     """
+    if layout == "grid_landscape":
+        return _render_landscape(subject, author, playlist_urls, results, theme_name)
+    return _render_portrait(subject, author, playlist_urls, results, theme_name)
+
+
+def _render_landscape(
+    subject: str,
+    author: str,
+    playlist_urls: list[str],
+    results: list[dict],
+    theme_name: str,
+) -> bytes:
+    """Legacy pre-3.1 output: landscape A4, 8-column checklist grid.
+    Kept verbatim for `layout: "grid_landscape"` clients."""
     theme = THEMES.get(theme_name, THEMES["nordic_frost"])
     qr_cache = QRCache()
     try:
         pdf = StudyGuidePDF(subject, theme)
         base = pdf.base_family
         fg = pdf.fg
+        _set_pdf_metadata(pdf, subject, author)
 
         # --- Editorial-Style Cover Page ---
         pdf.add_page()
@@ -1019,6 +1060,216 @@ def render_guide_pdf(
 
         # fpdf2 >= 2.8 returns a bytearray directly (the old `dest="S"` call
         # was deprecated in 2.2 and removed-direction since 2.8).
+        return bytes(pdf.output())
+    finally:
+        qr_cache.cleanup()
+
+
+def _render_portrait(
+    subject: str,
+    author: str,
+    playlist_urls: list[str],
+    results: list[dict],
+    theme_name: str,
+) -> bytes:
+    """D2 — the v3.1 default: portrait A4, topic-grouped sections.
+
+    Upgrades over the legacy grid:
+      - real `multi_cell` wrapping — no fixed-char truncation, ever
+      - D4 refreshed editorial cover with a metrics strip
+      - D5 table of contents page + PDF outline bookmarks (start_section)
+      - D6 document metadata
+      - per-topic confidence chips + AI study notes
+    """
+    theme = THEMES.get(theme_name, THEMES["nordic_frost"])
+    qr_cache = QRCache()
+    try:
+        pdf = StudyGuidePDF(subject, theme, orientation="P")
+        base = pdf.base_family
+        fg = pdf.fg
+        _set_pdf_metadata(pdf, subject, author)
+
+        margin = 18.0
+        content_w = pdf.w - 2 * margin  # 174mm
+        matched = [r for r in results if r["matched"]]
+        unmatched = [r for r in results if not r["matched"]]
+        total_videos = sum(len(r["videos"]) for r in matched)
+
+        # ---------- Cover (D4) ----------
+        pdf.add_page()
+        pdf.set_fill_color(*theme["bg"])
+        pdf.rect(0, 0, pdf.w, pdf.h, "F")
+
+        # Concentric accent geometry, anchored top-right
+        pdf.set_draw_color(*theme["accent"])
+        pdf.set_line_width(0.5)
+        for r in (28, 46, 64, 82):
+            pdf.ellipse(pdf.w - margin - 2 * r, 8 + 46 - r, 2 * r, 2 * r, "D")
+        pdf.set_line_width(1.6)
+        pdf.line(pdf.w - 70, 0, pdf.w, 70)
+        pdf.line(pdf.w - 88, 0, pdf.w, 88)
+
+        # Title (auto-shrink so long subjects never overflow)
+        title_fam = font_for_text(subject, base)
+        title = prepare_text(subject.upper(), pdf, title_fam)
+        size = 44 if len(title) <= 22 else (34 if len(title) <= 40 else 26)
+        pdf.set_y(96)
+        pdf.set_font(title_fam, "B", size)
+        pdf.set_text_color(*fg["cover_title"])
+        pdf.multi_cell(content_w, size * 0.55, title, align="C")
+
+        author_fam = font_for_text(author, base)
+        pdf.set_y(pdf.get_y() + 6)
+        pdf.set_font(author_fam, "", 15)
+        pdf.set_text_color(*fg["cover_sub"])
+        pdf.multi_cell(content_w, 9, f"PREPARED FOR: {prepare_text(author.upper(), pdf, author_fam)}", align="C")
+
+        # Metrics strip (four blocks on an accent band)
+        strip_y = pdf.h - 74
+        pdf.set_fill_color(*theme["accent"])
+        pdf.rect(margin, strip_y, content_w, 22, "F")
+        pdf.set_font(base, "B", 16)
+        pdf.set_text_color(*fg["summary"])
+        cells = [
+            (str(len(results)), "topics"),
+            (f"{len(matched)}/{len(results)}", "covered"),
+            (str(total_videos), "videos"),
+            (str(len(playlist_urls)), "playlists"),
+        ]
+        cw = content_w / 4
+        for i, (num, label) in enumerate(cells):
+            x = margin + i * cw
+            pdf.set_xy(x, strip_y + 3)
+            pdf.cell(cw, 9, num, align="C")
+            pdf.set_font(base, "", 8.5)
+            pdf.set_xy(x, strip_y + 12)
+            pdf.cell(cw, 6, label.upper(), align="C")
+            pdf.set_font(base, "B", 16)
+            pdf.set_text_color(*fg["summary"])
+
+        # Footer rule + watermark
+        pdf.set_draw_color(*theme["text"])
+        pdf.set_line_width(0.3)
+        pdf.line(40, pdf.h - 40, pdf.w - 40, pdf.h - 40)
+        pdf.set_y(pdf.h - 34)
+        pdf.set_font(base, "I", 9.5)
+        pdf.set_text_color(*fg["cover_sub"])
+        pdf.cell(0, 8, "Generated by Play2PDF Studio - The Intelligent Video Compiler", align="C")
+
+        # ---------- Contents (D5) ----------
+        pdf.add_page()
+        pdf.set_margins(margin, margin, margin)
+        pdf.set_xy(margin, margin + 6)
+        pdf.set_font(base, "B", 22)
+        pdf.set_text_color(*fg["header"])
+        pdf.cell(0, 12, "Contents")
+        pdf.set_y(pdf.get_y() + 16)
+
+        def _render_toc(doc: FPDF, sections: list) -> None:
+            doc.set_font(base, "", 10.5)
+            doc.set_text_color(*fg["body"])
+            for s in sections:
+                label = prepare_text(str(getattr(s, "name", s)), doc, base)
+                doc.cell(0, 7.6, label, align="L")
+                doc.set_y(doc.get_y() + 7.6)
+
+        try:
+            pdf.insert_toc_placeholder(_render_toc, pages=1)
+        except Exception:  # noqa: BLE001 — TOC is an enhancement, never fatal
+            pass
+
+        # ---------- Topic sections ----------
+        for idx, res in enumerate(matched):
+            pdf.start_section(prepare_text(res["topic"], pdf, base))
+            # Keep headers with at least one video row: need ~46mm
+            if pdf.get_y() + 52 > pdf.h - 16:
+                pdf.add_page()
+            top_y = pdf.get_y() + 4
+
+            # Section header band
+            pdf.set_fill_color(*theme["accent"])
+            pdf.rect(margin, top_y, content_w, 11, "F")
+            pdf.set_xy(margin + 4, top_y + 1.5)
+            pdf.set_font(base, "B", 12.5)
+            pdf.set_text_color(*fg["summary"])
+            pdf.cell(content_w - 40, 8, f"{idx + 1}.  {prepare_text(res['topic'], pdf, base)}")
+            # Confidence chip
+            conf = (res.get("confidence") or "medium").upper()
+            pdf.set_xy(margin + content_w - 38, top_y + 2)
+            pdf.set_font(base, "B", 8)
+            pdf.cell(34, 7, conf, align="R")
+            pdf.set_y(top_y + 14)
+
+            # AI study note
+            if res.get("study_note"):
+                pdf.set_font(base, "I", 9.5)
+                pdf.set_text_color(*fg["body"])
+                pdf.multi_cell(content_w, 5.6, prepare_text(res["study_note"], pdf, base))
+                pdf.set_y(pdf.get_y() + 3)
+
+            # Video rows
+            for v_i, vid in enumerate(res["videos"]):
+                row_h = 24
+                if pdf.get_y() + row_h > pdf.h - 16:
+                    pdf.add_page()
+                y = pdf.get_y()
+
+                # zebra background for odd rows
+                if v_i % 2 == 0:
+                    pdf.set_fill_color(*alt_row_bg(theme["paper_bg"]))
+                    pdf.rect(margin, y, content_w, row_h, "F")
+
+                # checkbox
+                pdf.set_xy(margin + 3, y + row_h / 2 - 3)
+                pdf.set_font(base, "B", 11)
+                pdf.set_text_color(*fg["body"])
+                pdf.cell(7, 6, "[  ]")
+
+                # title + meta (wrapped, never truncated)
+                vid_fam = font_for_text(vid["title"], base)
+                pdf.set_xy(margin + 13, y + 3)
+                pdf.set_font(vid_fam, "B", 10)
+                pdf.multi_cell(content_w - 13 - 30, 5.4, prepare_text(vid["title"], pdf, vid_fam))
+                pdf.set_xy(margin + 13, y + row_h - 9)
+                pdf.set_font(base, "", 8.5)
+                pdf.set_text_color(*fg["body"])
+                pdf.cell(content_w - 13 - 30, 5,
+                         f"{vid['duration']}   |   {format_views(vid['views'])} views")
+
+                # QR (right) + watch link
+                qr_path = qr_cache.get(vid["id"], vid["url"])
+                pdf.image(qr_path, x=margin + content_w - 22, y=y + 3, w=18, h=18)
+                pdf.set_xy(margin + content_w - 24, y + row_h - 9)
+                pdf.set_font(base, "B", 8.5)
+                pdf.set_text_color(*fg["link"])
+                pdf.cell(24, 5, "Watch", align="R", link=vid["url"])
+
+                pdf.set_y(y + row_h + 2)
+
+            pdf.set_y(pdf.get_y() + 4)
+
+        # ---------- Unmatched appendix ----------
+        if unmatched:
+            pdf.add_page()
+            pdf.set_font(base, "B", 16)
+            pdf.set_text_color(*fg["header"])
+            pdf.cell(0, 12, "Unmatched Syllabus Topics")
+            pdf.set_y(pdf.get_y() + 14)
+            pdf.set_font(base, "", 10)
+            pdf.set_text_color(*fg["body"])
+            pdf.multi_cell(content_w, 6,
+                           "The following topics could not be confidently matched to any video "
+                           "in the provided playlist(s). You may need to supplement your study "
+                           "guide with external materials for these concepts:")
+            pdf.set_y(pdf.get_y() + 3)
+            for res in unmatched:
+                if pdf.get_y() + 8 > pdf.h - 16:
+                    pdf.add_page()
+                res_fam = font_for_text(res["topic"], base)
+                pdf.set_font(res_fam, "", 10)
+                pdf.cell(0, 7, f"-  {prepare_text(res['topic'], pdf, res_fam)}")
+                pdf.set_y(pdf.get_y() + 7)
+
         return bytes(pdf.output())
     finally:
         qr_cache.cleanup()

@@ -7,6 +7,7 @@ headers) with zero network. Run after any change to the endpoint wiring.
 
 Usage: python test_e2e.py
 """
+import io
 import json
 import sys
 
@@ -78,11 +79,31 @@ def main():
         "topics": "Arrays & Pointers\nBig-O, Big-Theta Notation\n\u0413\u0440\u0430\u0444\u044b \u0438 \u0434\u0435\u0440\u0435\u0432\u044c\u044f\nUnmatched Topic",
         "theme": "nordic_frost",
     }
+    # --- default (no layout field) = portrait; explicit legacy layout ---
+    from pypdf import PdfReader  # noqa: PLC0415
     r = client.post("/generate_guide", json=req)
     ctype = r.headers.get("content-type", "")
     print(f"POST /generate_guide -> {r.status_code} ({ctype}, {len(r.content)} bytes)")
     if r.status_code != 200 or "application/pdf" not in ctype or not r.content.startswith(b"%PDF"):
         failures.append(f"generate_guide bad response: {r.status_code} {ctype[:40]}")
+    else:
+        pages = PdfReader(io.BytesIO(r.content)).pages
+        text0 = (pages[0].extract_text() or "")
+        if len(pages) < 3 or "Contents" not in (pages[1].extract_text() or ""):
+            failures.append(f"default layout not portrait (pages={len(pages)})")
+        if r.headers.get("content-type") != "application/pdf":
+            failures.append("wrong content type")
+    print(f"    default layout pages+TOC verified: {len(PdfReader(io.BytesIO(r.content)).pages)} pages")
+
+    rg = client.post("/generate_guide", json=dict(req, layout="grid_landscape"))
+    print(f"POST layout=grid_landscape -> {rg.status_code}")
+    if rg.status_code != 200 or not rg.content.startswith(b"%PDF"):
+        failures.append(f"grid_landscape failed: {rg.status_code}")
+
+    rb2 = client.post("/generate_guide", json=dict(req, layout="bogus"))
+    print(f"POST layout=bogus -> {rb2.status_code} (expect 422)")
+    if rb2.status_code != 422:
+        failures.append(f"bogus layout should 422, got {rb2.status_code}")
 
     # --- v1 alias ---
     r2 = client.post("/api/v1/generate_guide", json=req)

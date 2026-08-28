@@ -55,7 +55,9 @@ data class GenerateGuideRequest(
     @Json(name = "author") val author: String,
     @Json(name = "playlist_urls") val playlistUrls: List<String>,
     @Json(name = "topics") val topics: String,
-    @Json(name = "theme") val theme: String
+    @Json(name = "theme") val theme: String,
+    /** "portrait" (v3.1 default) or "grid_landscape" (legacy). */
+    @Json(name = "layout") val layout: String = "portrait"
 )
 
 /**
