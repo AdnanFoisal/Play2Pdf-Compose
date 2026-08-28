@@ -32,10 +32,47 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
-from google.generativeai import GenerativeModel, configure as configure_genai
+# google-generativeai is end-of-life ("All support for this package has
+# ended") — migrated to the google-genai SDK.
+from google import genai
+from google.genai import types as genai_types
 from googleapiclient.discovery import build
 from fpdf import FPDF
 import qrcode
+
+
+# --- Gemini client (one client per API key, cached) ---------------------------
+_genai_clients: dict[str, "genai.Client"] = {}
+
+
+def _get_genai_client(api_key: str) -> "genai.Client":
+    client = _genai_clients.get(api_key)
+    if client is None:
+        client = genai.Client(api_key=api_key)
+        _genai_clients[api_key] = client
+    return client
+
+
+def _gemini_generate(
+    api_key: str, model: str, prompt: str,
+    *, json_mode: bool = True, max_output_tokens: int | None = None,
+) -> str:
+    """Single seam for Gemini text generation.
+
+    Every call site (topic extraction + guide matching) goes through here,
+    which is also what test_e2e.py monkeypatches — the AI boundary stays
+    testable without network or keys.
+    """
+    kwargs: dict = {}
+    if json_mode:
+        kwargs["response_mime_type"] = "application/json"
+    if max_output_tokens:
+        kwargs["max_output_tokens"] = max_output_tokens
+    config = genai_types.GenerateContentConfig(**kwargs)
+    response = _get_genai_client(api_key).models.generate_content(
+        model=model, contents=prompt, config=config,
+    )
+    return response.text or ""
 
 # --- Structured JSON logging -------------------------------------------------
 # HF Spaces aggregates stdout — JSON lines are easy to grep.
@@ -83,7 +120,7 @@ logging.getLogger("fontTools").setLevel(logging.WARNING)
 
 
 # --- FastAPI app + middleware ------------------------------------------------
-app = FastAPI(title="Play2PDF API", version="3.1")
+app = FastAPI(title="Play2PDF API", version="3.2")
 
 # CORS allow-list — the Android app's package name (sent as Origin) plus
 # localhost for local dev. We can't whitelist by package name at the HTTP
@@ -656,13 +693,13 @@ async def log_requests(request: Request, call_next):
 # --- Endpoints (v1, kept at root for backwards-compat) ----------------------
 @app.get("/ping")
 def ping():
-    return {"status": "awake", "version": "3.1"}
+    return {"status": "awake", "version": "3.2"}
 
 
 @app.get("/health")
 def health():
     """Uptime-monitoring endpoint — slightly richer than /ping."""
-    return {"status": "ok", "version": "3.1", "themes": list(THEMES.keys())}
+    return {"status": "ok", "version": "3.2", "themes": list(THEMES.keys())}
 
 
 @app.get("/themes")
@@ -695,7 +732,7 @@ def themes():
                 "accent": list(t["accent"]),
             },
         }
-    return {"version": "3.1", "themes": payload}
+    return {"version": "3.2", "themes": payload}
 
 
 @app.post("/extract_topics")
@@ -705,10 +742,8 @@ async def extract_topics(req: ExtractTopicsRequest):
         if not all_videos:
             raise HTTPException(status_code=400, detail="No videos found.")
         titles = [v["title"] for v in all_videos[:100]]
-        configure_genai(api_key=req.gemini_key)
         # v3 NOTE: gemini-3.5-flash-lite is the topic-extraction model.
         # gemini-3.6-flash is the matching model (used in /generate_guide).
-        model = GenerativeModel('gemini-3.5-flash-lite')
         prompt = (
             f"Given these YouTube video titles from a course playlist:\n"
             f"{json.dumps(titles)}\n\n"
@@ -717,12 +752,9 @@ async def extract_topics(req: ExtractTopicsRequest):
             f"Limit the list to a maximum of 15-20 core topics. "
             f"Return a JSON array of topic strings only, no commentary."
         )
-        from google.generativeai.types import GenerationConfig
-        resp = model.generate_content(
-            prompt,
-            generation_config=GenerationConfig(response_mime_type="application/json")
-        )
-        cleaned = resp.text.strip()
+        cleaned = _gemini_generate(
+            req.gemini_key, "gemini-3.5-flash-lite", prompt,
+        ).strip()
         if not cleaned:
             return {"topics": []}
         if cleaned.startswith("```"):
@@ -779,16 +811,6 @@ async def generate_guide(req: GenerationRequest, request: Request):
         if await request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
 
-        configure_genai(api_key=req.gemini_key)
-        # v3 uses gemini-3.6-flash (latest GA, confirmed July 2026).
-        model = GenerativeModel(
-            'gemini-3.6-flash',
-            generation_config={
-                "response_mime_type": "application/json",
-                "max_output_tokens": 65536,
-            }
-        )
-
         # Newline-delimited topics (current Android clients): a topic may
         # itself contain a comma ("Big-O, Big-Theta"). Fall back to comma-
         # splitting for old clients that send one comma-separated line.
@@ -812,8 +834,12 @@ async def generate_guide(req: GenerationRequest, request: Request):
         ]
 
         prompt = build_prompt(topics_list, videos_payload)
-        response = model.generate_content(prompt)
-        ai_matches = parse_ai_response(response.text)
+        # v3 uses gemini-3.6-flash (latest GA, confirmed July 2026).
+        raw_matches = _gemini_generate(
+            req.gemini_key, "gemini-3.6-flash", prompt,
+            max_output_tokens=65536,
+        )
+        ai_matches = parse_ai_response(raw_matches)
 
         if await request.is_disconnected():
             raise HTTPException(status_code=499, detail="Client disconnected")
@@ -1332,7 +1358,7 @@ def theme_text_pairs(theme: dict) -> list[tuple[str, tuple[int, int, int], tuple
 # callers. The Android Compose app uses the v1 endpoints for now (they're
 # the only ones currently deployed), but the v3 prefix is available for
 # opt-in.
-app_v1 = FastAPI(title="Play2PDF API v1", version="3.1")
+app_v1 = FastAPI(title="Play2PDF API v1", version="3.2")
 app_v1.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

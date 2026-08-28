@@ -33,21 +33,12 @@ AI_MATCHES = [
 ]
 
 
-class _FakeResp:
-    text = json.dumps(AI_MATCHES)
-
-
-class FakeGenerativeModel:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def generate_content(self, prompt):
-        return _FakeResp()
-
-
 def main():
     server.fetch_videos = lambda api_key, urls: FAKE_VIDEOS
-    server.GenerativeModel = FakeGenerativeModel
+    # The AI boundary is a single seam post-genai-migration — patch it.
+    server._gemini_generate = (
+        lambda api_key, model, prompt, **kw: json.dumps(AI_MATCHES)
+    )
 
     client = TestClient(server.app)
     failures = []
