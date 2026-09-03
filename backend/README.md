@@ -113,7 +113,17 @@ should retry in a minute.
 ## Models
 
 - **Topic extraction:** `gemini-3.5-flash-lite` (cheap, fast)
-- **Topic-to-video matching:** `gemini-3.6-flash` (latest GA, confirmed July 2026)
+- **Topic-to-video matching:** `gemini-3.8-flash` (newest flash, verified live 2026-09-03)
+
+Both are defined once at the top of `server.py` (`MODEL_EXTRACT` /
+`MODEL_MATCH`) and reported by `GET /health` under `models`, so what's
+running is never a guess.
+
+Gemini returns transient `503 overloaded` errors under load — measured
+3 calls each on 2026-09-03: `gemini-3.8-flash` 3/3, `gemini-3.7-flash`
+2/3, `gemini-3.6-flash` 1/3. `_gemini_generate()` therefore retries
+transient failures (429/5xx) with 1s / 3s / 7s backoff; before that a
+single 503 surfaced to the user as "Compilation failed".
 
 Both models are configured per-request via the `gemini_key` field — the
 server itself has no API keys baked in.

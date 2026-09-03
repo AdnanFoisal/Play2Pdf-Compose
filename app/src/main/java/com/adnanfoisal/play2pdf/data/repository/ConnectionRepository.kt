@@ -145,7 +145,9 @@ class ConnectionRepository @Inject constructor(
 
     private companion object {
         const val TAG = "ConnectionRepo"
-        val REQUIRED_MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.6-flash")
+        // Keep in sync with backend MODEL_EXTRACT / MODEL_MATCH — the live
+        // values are also reported by GET /health under "models".
+        val REQUIRED_MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
         val MODEL_NAME_REGEX = Regex("\"name\"\\s*:\\s*\"models/([^\"]+)\"")
         val GOOGLE_MESSAGE_REGEX = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"")
     }

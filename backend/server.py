@@ -36,9 +36,25 @@ from pydantic import BaseModel, field_validator
 # ended") — migrated to the google-genai SDK.
 from google import genai
 from google.genai import types as genai_types
+from google.genai import errors as genai_errors
 from googleapiclient.discovery import build
 from fpdf import FPDF
 import qrcode
+
+
+# --- Gemini models ------------------------------------------------------------
+# Newest available in the flash family (verified live against the API on
+# 2026-09-03). Measured reliability over 3 calls each that day:
+#   gemini-3.8-flash 3/3 · gemini-3.7-flash 2/3 · gemini-3.6-flash 1/3
+# The 503s are transient capacity errors, which is exactly why
+# _gemini_generate retries — see below.
+MODEL_MATCH = "gemini-3.8-flash"          # topic -> video matching (quality)
+MODEL_EXTRACT = "gemini-3.5-flash-lite"   # topic extraction (cheap, fast)
+
+# Transient upstream failures worth retrying (overloaded / rate limited /
+# internal). A single 503 used to surface as "Compilation failed".
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+_RETRY_DELAYS = (1.0, 3.0, 7.0)  # 4 attempts total
 
 
 # --- Gemini client (one client per API key, cached) ---------------------------
@@ -57,11 +73,15 @@ def _gemini_generate(
     api_key: str, model: str, prompt: str,
     *, json_mode: bool = True, max_output_tokens: int | None = None,
 ) -> str:
-    """Single seam for Gemini text generation.
+    """Single seam for Gemini text generation, with retry on transient errors.
 
     Every call site (topic extraction + guide matching) goes through here,
     which is also what test_e2e.py monkeypatches — the AI boundary stays
     testable without network or keys.
+
+    Gemini returns 503 "overloaded" fairly often under load; without a
+    retry that became a failed compile for the user. We back off
+    1s / 3s / 7s and only then give up.
     """
     kwargs: dict = {}
     if json_mode:
@@ -69,10 +89,41 @@ def _gemini_generate(
     if max_output_tokens:
         kwargs["max_output_tokens"] = max_output_tokens
     config = genai_types.GenerateContentConfig(**kwargs)
-    response = _get_genai_client(api_key).models.generate_content(
-        model=model, contents=prompt, config=config,
-    )
-    return response.text or ""
+
+    last_error: Exception | None = None
+    for attempt in range(len(_RETRY_DELAYS) + 1):
+        try:
+            response = _get_genai_client(api_key).models.generate_content(
+                model=model, contents=prompt, config=config,
+            )
+            if attempt:
+                log.info("gemini_retry_succeeded", extra={"model": model, "attempt": attempt + 1})
+            return response.text or ""
+        except genai_errors.APIError as e:
+            status = getattr(e, "code", None) or getattr(e, "status", None)
+            retryable = status in _RETRY_STATUS or isinstance(e, genai_errors.ServerError)
+            last_error = e
+            if not retryable or attempt >= len(_RETRY_DELAYS):
+                raise
+            delay = _RETRY_DELAYS[attempt]
+            log.warning(
+                "gemini_transient_error_retrying",
+                extra={"model": model, "status": str(status), "attempt": attempt + 1, "sleep_s": delay},
+            )
+            time.sleep(delay)
+        except Exception as e:  # network blips etc.
+            last_error = e
+            if attempt >= len(_RETRY_DELAYS):
+                raise
+            delay = _RETRY_DELAYS[attempt]
+            log.warning(
+                "gemini_error_retrying",
+                extra={"model": model, "error": type(e).__name__, "attempt": attempt + 1, "sleep_s": delay},
+            )
+            time.sleep(delay)
+    if last_error:
+        raise last_error
+    return ""
 
 # --- Structured JSON logging -------------------------------------------------
 # HF Spaces aggregates stdout — JSON lines are easy to grep.
@@ -120,7 +171,7 @@ logging.getLogger("fontTools").setLevel(logging.WARNING)
 
 
 # --- FastAPI app + middleware ------------------------------------------------
-app = FastAPI(title="Play2PDF API", version="3.2")
+app = FastAPI(title="Play2PDF API", version="3.3")
 
 # CORS allow-list — the Android app's package name (sent as Origin) plus
 # localhost for local dev. We can't whitelist by package name at the HTTP
@@ -693,13 +744,20 @@ async def log_requests(request: Request, call_next):
 # --- Endpoints (v1, kept at root for backwards-compat) ----------------------
 @app.get("/ping")
 def ping():
-    return {"status": "awake", "version": "3.2"}
+    return {"status": "awake", "version": "3.3"}
 
 
 @app.get("/health")
 def health():
     """Uptime-monitoring endpoint — slightly richer than /ping."""
-    return {"status": "ok", "version": "3.2", "themes": list(THEMES.keys())}
+    return {
+        "status": "ok",
+        "version": "3.3",
+        "themes": list(THEMES.keys()),
+        # Surfaced so the models in use are visible without reading source
+        # (and so the app can flag a key that lacks them).
+        "models": {"extract": MODEL_EXTRACT, "match": MODEL_MATCH},
+    }
 
 
 @app.get("/themes")
@@ -732,7 +790,7 @@ def themes():
                 "accent": list(t["accent"]),
             },
         }
-    return {"version": "3.2", "themes": payload}
+    return {"version": "3.3", "themes": payload}
 
 
 @app.post("/extract_topics")
@@ -742,8 +800,6 @@ async def extract_topics(req: ExtractTopicsRequest):
         if not all_videos:
             raise HTTPException(status_code=400, detail="No videos found.")
         titles = [v["title"] for v in all_videos[:100]]
-        # v3 NOTE: gemini-3.5-flash-lite is the topic-extraction model.
-        # gemini-3.6-flash is the matching model (used in /generate_guide).
         prompt = (
             f"Given these YouTube video titles from a course playlist:\n"
             f"{json.dumps(titles)}\n\n"
@@ -752,8 +808,11 @@ async def extract_topics(req: ExtractTopicsRequest):
             f"Limit the list to a maximum of 15-20 core topics. "
             f"Return a JSON array of topic strings only, no commentary."
         )
+        # Topic extraction uses the cheap/fast lite model; matching uses the
+        # stronger flash model (both defined at the top: MODEL_EXTRACT /
+        # MODEL_MATCH — single place to bump).
         cleaned = _gemini_generate(
-            req.gemini_key, "gemini-3.5-flash-lite", prompt,
+            req.gemini_key, MODEL_EXTRACT, prompt,
         ).strip()
         if not cleaned:
             return {"topics": []}
@@ -834,9 +893,8 @@ async def generate_guide(req: GenerationRequest, request: Request):
         ]
 
         prompt = build_prompt(topics_list, videos_payload)
-        # v3 uses gemini-3.6-flash (latest GA, confirmed July 2026).
         raw_matches = _gemini_generate(
-            req.gemini_key, "gemini-3.6-flash", prompt,
+            req.gemini_key, MODEL_MATCH, prompt,
             max_output_tokens=65536,
         )
         ai_matches = parse_ai_response(raw_matches)
@@ -1358,7 +1416,7 @@ def theme_text_pairs(theme: dict) -> list[tuple[str, tuple[int, int, int], tuple
 # callers. The Android Compose app uses the v1 endpoints for now (they're
 # the only ones currently deployed), but the v3 prefix is available for
 # opt-in.
-app_v1 = FastAPI(title="Play2PDF API v1", version="3.2")
+app_v1 = FastAPI(title="Play2PDF API v1", version="3.3")
 app_v1.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
