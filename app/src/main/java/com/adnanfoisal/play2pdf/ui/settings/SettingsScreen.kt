@@ -40,6 +40,7 @@ import com.adnanfoisal.play2pdf.core.designsystem.components.PrimaryButton
 import com.adnanfoisal.play2pdf.core.designsystem.icons.AppIcons
 import com.adnanfoisal.play2pdf.core.effects.pressScaleClickable
 import com.adnanfoisal.play2pdf.core.effects.settingsAtmosphere
+import com.adnanfoisal.play2pdf.domain.model.ConnectionStatus
 import com.adnanfoisal.play2pdf.domain.model.PdfTheme
 import com.adnanfoisal.play2pdf.tokens.Spacing
 import com.adnanfoisal.play2pdf.theme.AppShape
@@ -106,6 +107,7 @@ fun SettingsScreen(
                     ) {
                         ConnectionStatusIndicator(status = state.youtubeStatus)
                     }
+                    StatusDetail(state.youtubeDetail, state.youtubeStatus)
                     PremiumTextField(
                         value = s.geminiApiKey,
                         onValueChange = viewModel::setGeminiKey,
@@ -128,6 +130,7 @@ fun SettingsScreen(
                     ) {
                         ConnectionStatusIndicator(status = state.geminiStatus)
                     }
+                    StatusDetail(state.geminiDetail, state.geminiStatus)
                 }
             }
             Spacer(Modifier.height(Spacing.lg))
@@ -149,6 +152,7 @@ fun SettingsScreen(
                     ) {
                         ConnectionStatusIndicator(status = state.connectionStatus)
                     }
+                    StatusDetail(state.connectionDetail, state.connectionStatus)
                 }
             }
             Spacer(Modifier.height(Spacing.lg))
@@ -220,6 +224,27 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+/**
+ * One-line explanation under a status indicator: green-ish confirmation
+ * when Online, the actual failure reason (HTTP code + Google's message)
+ * when Offline. Previously a failed check just said "Offline" with no way
+ * to tell an invalid key from a disabled API from no network.
+ */
+@Composable
+private fun StatusDetail(detail: String?, status: ConnectionStatus) {
+    if (detail.isNullOrBlank()) return
+    Text(
+        text = detail,
+        color = when (status) {
+            ConnectionStatus.Online -> BrandColors.TextTertiary
+            ConnectionStatus.Checking -> BrandColors.TextTertiary
+            ConnectionStatus.Offline -> BrandColors.Error
+        },
+        style = AppType.caption,
+        modifier = Modifier.padding(bottom = Spacing.sm)
+    )
 }
 
 @Composable

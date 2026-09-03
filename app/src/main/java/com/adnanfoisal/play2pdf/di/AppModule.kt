@@ -55,14 +55,27 @@ object AppModule {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
+        // Host of the compile-time default backend. ONLY requests aimed at
+        // this host get redirected to the user's configured backend — the
+        // same OkHttp client is also used for YouTube/Gemini key validation,
+        // and rewriting those would send them to the Play2PDF backend
+        // (which answers 404, making valid API keys look "Offline").
+        val defaultBackendHost = BuildConfig.DEFAULT_BACKEND_URL.toHttpUrlOrNull()?.host
+
         return OkHttpClient.Builder()
             .addInterceptor(logging)
-            // Dynamic backend URL: read the user's configured backend on every
-            // call and rewrite the request to point at it. Interceptors run on
-            // OkHttp dispatcher threads (never main), so the blocking DataStore
-            // read is safe here.
+            // Dynamic backend URL: read the user's configured backend and
+            // rewrite ONLY our own API calls to point at it. Interceptors run
+            // on OkHttp dispatcher threads (never main), so the blocking
+            // DataStore read is safe here.
             .addInterceptor { chain ->
                 val request = chain.request()
+                val isOurBackend = defaultBackendHost != null &&
+                    request.url.host == defaultBackendHost
+                if (!isOurBackend) {
+                    // Third-party host (googleapis.com, ...) — never touch it.
+                    return@addInterceptor chain.proceed(request)
+                }
                 val configured = runBlocking {
                     settings.settings.first().backendUrl
                 }.trim().removeSuffix("/")
