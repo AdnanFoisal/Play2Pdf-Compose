@@ -43,18 +43,63 @@ import qrcode
 
 
 # --- Gemini models ------------------------------------------------------------
-# Newest available in the flash family (verified live against the API on
-# 2026-09-03). Measured reliability over 3 calls each that day:
-#   gemini-3.8-flash 3/3 · gemini-3.7-flash 2/3 · gemini-3.6-flash 1/3
-# The 503s are transient capacity errors, which is exactly why
-# _gemini_generate retries — see below.
-MODEL_MATCH = "gemini-3.8-flash"          # topic -> video matching (quality)
-MODEL_EXTRACT = "gemini-3.5-flash-lite"   # topic extraction (cheap, fast)
+# Ordered FALLBACK CHAINS, newest first. Capacity ("503 high demand") is
+# per-model and fluctuates minute to minute — measured 3 calls each on
+# 2026-09-03: gemini-3.8-flash 3/3, gemini-3.7-flash 2/3, gemini-3.6-flash
+# 1/3. Retrying a single hot model is NOT enough (an 11s backoff still lost
+# to a longer spike, which is what users hit), so we retry briefly and then
+# move down the chain. All IDs verified present on a live key.
+MODEL_MATCH_CHAIN = (
+    "gemini-3.8-flash",   # newest, preferred for matching quality
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash",   # oldest still-good fallback; rarely busy
+)
+MODEL_EXTRACT_CHAIN = (
+    "gemini-3.5-flash-lite",  # newest lite: cheap + fast
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+)
+# Primary of each chain — reported by /health and used in logs.
+MODEL_MATCH = MODEL_MATCH_CHAIN[0]
+MODEL_EXTRACT = MODEL_EXTRACT_CHAIN[0]
 
 # Transient upstream failures worth retrying (overloaded / rate limited /
 # internal). A single 503 used to surface as "Compilation failed".
 _RETRY_STATUS = {429, 500, 502, 503, 504}
-_RETRY_DELAYS = (1.0, 3.0, 7.0)  # 4 attempts total
+# Per-model backoff before giving up on THAT model and trying the next one.
+_RETRY_DELAYS = (1.0, 4.0)
+
+
+class GeminiUnavailable(Exception):
+    """Every model in the chain was overloaded/unavailable."""
+
+
+def friendly_error(e: Exception) -> str:
+    """Turn provider exceptions into something worth showing a user.
+
+    Previously the endpoints returned `str(e)`, which for Gemini meant the
+    raw payload — e.g. "503 UNAVAILABLE. {'error': {'code': 503, ...}}".
+    """
+    if isinstance(e, GeminiUnavailable):
+        return str(e)
+    if isinstance(e, genai_errors.APIError):
+        code = getattr(e, "code", None)
+        message = getattr(e, "message", None) or ""
+        if code in (401, 403) or "API key not valid" in message or "API_KEY_INVALID" in message:
+            return "Gemini rejected the API key. Check the key in Settings."
+        if code == 429:
+            return "Gemini quota exceeded for this key. Try again later."
+        if code in _RETRY_STATUS:
+            return "Gemini is busy right now (high demand). Please try again in a minute."
+        return f"Gemini error{f' {code}' if code else ''}: {message or 'unexpected response'}"
+    text = str(e)
+    if "quotaExceeded" in text or "quota" in text.lower():
+        return "YouTube API quota exceeded for this key. Try again tomorrow or use another key."
+    if "API key not valid" in text or "API_KEY_INVALID" in text:
+        return "YouTube rejected the API key. Check the key in Settings."
+    # Keep it short — full traceback is already in the server log.
+    return text.splitlines()[0][:300] if text else "Unexpected server error"
 
 
 # --- Gemini client (one client per API key, cached) ---------------------------
@@ -69,20 +114,37 @@ def _get_genai_client(api_key: str) -> "genai.Client":
     return client
 
 
+def _is_transient(e: Exception) -> bool:
+    """True for capacity/rate/internal errors worth retrying elsewhere."""
+    if isinstance(e, genai_errors.ServerError):
+        return True
+    if isinstance(e, genai_errors.APIError):
+        code = getattr(e, "code", None)
+        if code in _RETRY_STATUS:
+            return True
+        return str(getattr(e, "status", "")).upper() in {
+            "UNAVAILABLE", "RESOURCE_EXHAUSTED", "INTERNAL", "DEADLINE_EXCEEDED",
+        }
+    return False
+
+
 def _gemini_generate(
-    api_key: str, model: str, prompt: str,
+    api_key: str, models: "str | tuple[str, ...] | list[str]", prompt: str,
     *, json_mode: bool = True, max_output_tokens: int | None = None,
 ) -> str:
-    """Single seam for Gemini text generation, with retry on transient errors.
+    """Single seam for Gemini text generation: retry + model fallback.
 
     Every call site (topic extraction + guide matching) goes through here,
-    which is also what test_e2e.py monkeypatches — the AI boundary stays
+    which is also what the tests monkeypatch — the AI boundary stays
     testable without network or keys.
 
-    Gemini returns 503 "overloaded" fairly often under load; without a
-    retry that became a failed compile for the user. We back off
-    1s / 3s / 7s and only then give up.
+    *models* may be one id or an ordered chain. For each model we retry
+    transient failures with backoff; if that model stays unavailable we
+    fall through to the next one. Only when the whole chain is exhausted
+    do we raise [GeminiUnavailable], which the endpoints translate into a
+    friendly HTTP 503 instead of a raw provider error dict.
     """
+    chain = (models,) if isinstance(models, str) else tuple(models)
     kwargs: dict = {}
     if json_mode:
         kwargs["response_mime_type"] = "application/json"
@@ -91,39 +153,45 @@ def _gemini_generate(
     config = genai_types.GenerateContentConfig(**kwargs)
 
     last_error: Exception | None = None
-    for attempt in range(len(_RETRY_DELAYS) + 1):
-        try:
-            response = _get_genai_client(api_key).models.generate_content(
-                model=model, contents=prompt, config=config,
-            )
-            if attempt:
-                log.info("gemini_retry_succeeded", extra={"model": model, "attempt": attempt + 1})
-            return response.text or ""
-        except genai_errors.APIError as e:
-            status = getattr(e, "code", None) or getattr(e, "status", None)
-            retryable = status in _RETRY_STATUS or isinstance(e, genai_errors.ServerError)
-            last_error = e
-            if not retryable or attempt >= len(_RETRY_DELAYS):
-                raise
-            delay = _RETRY_DELAYS[attempt]
-            log.warning(
-                "gemini_transient_error_retrying",
-                extra={"model": model, "status": str(status), "attempt": attempt + 1, "sleep_s": delay},
-            )
-            time.sleep(delay)
-        except Exception as e:  # network blips etc.
-            last_error = e
-            if attempt >= len(_RETRY_DELAYS):
-                raise
-            delay = _RETRY_DELAYS[attempt]
-            log.warning(
-                "gemini_error_retrying",
-                extra={"model": model, "error": type(e).__name__, "attempt": attempt + 1, "sleep_s": delay},
-            )
-            time.sleep(delay)
-    if last_error:
-        raise last_error
-    return ""
+    for model_index, model in enumerate(chain):
+        for attempt in range(len(_RETRY_DELAYS) + 1):
+            try:
+                response = _get_genai_client(api_key).models.generate_content(
+                    model=model, contents=prompt, config=config,
+                )
+                if model_index or attempt:
+                    log.info(
+                        "gemini_recovered",
+                        extra={"model": model, "attempt": attempt + 1, "fallback_index": model_index},
+                    )
+                return response.text or ""
+            except Exception as e:  # noqa: BLE001 — classified below
+                last_error = e
+                transient = _is_transient(e)
+                if not transient:
+                    # Real error (bad key, bad request) — fail fast, no chain.
+                    raise
+                more_attempts = attempt < len(_RETRY_DELAYS)
+                if more_attempts:
+                    delay = _RETRY_DELAYS[attempt]
+                    log.warning(
+                        "gemini_transient_retrying",
+                        extra={
+                            "model": model, "attempt": attempt + 1,
+                            "status": str(getattr(e, "status", "") or getattr(e, "code", "")),
+                            "sleep_s": delay,
+                        },
+                    )
+                    time.sleep(delay)
+                else:
+                    log.warning(
+                        "gemini_model_exhausted_falling_back",
+                        extra={"model": model, "next": chain[model_index + 1] if model_index + 1 < len(chain) else None},
+                    )
+    log.error("gemini_all_models_unavailable", extra={"chain": list(chain)})
+    raise GeminiUnavailable(
+        "All Gemini models are busy right now (high demand). Please try again in a minute."
+    ) from last_error
 
 # --- Structured JSON logging -------------------------------------------------
 # HF Spaces aggregates stdout — JSON lines are easy to grep.
@@ -752,11 +820,17 @@ def health():
     """Uptime-monitoring endpoint — slightly richer than /ping."""
     return {
         "status": "ok",
-        "version": "3.3",
+        "version": "3.4",
         "themes": list(THEMES.keys()),
         # Surfaced so the models in use are visible without reading source
-        # (and so the app can flag a key that lacks them).
-        "models": {"extract": MODEL_EXTRACT, "match": MODEL_MATCH},
+        # (and so the app can flag a key that lacks them). Chains are the
+        # ordered fallbacks used when a model is overloaded.
+        "models": {
+            "extract": MODEL_EXTRACT,
+            "match": MODEL_MATCH,
+            "extract_chain": list(MODEL_EXTRACT_CHAIN),
+            "match_chain": list(MODEL_MATCH_CHAIN),
+        },
     }
 
 
@@ -808,11 +882,8 @@ async def extract_topics(req: ExtractTopicsRequest):
             f"Limit the list to a maximum of 15-20 core topics. "
             f"Return a JSON array of topic strings only, no commentary."
         )
-        # Topic extraction uses the cheap/fast lite model; matching uses the
-        # stronger flash model (both defined at the top: MODEL_EXTRACT /
-        # MODEL_MATCH — single place to bump).
         cleaned = _gemini_generate(
-            req.gemini_key, MODEL_EXTRACT, prompt,
+            req.gemini_key, MODEL_EXTRACT_CHAIN, prompt,
         ).strip()
         if not cleaned:
             return {"topics": []}
@@ -825,9 +896,13 @@ async def extract_topics(req: ExtractTopicsRequest):
         return {"topics": []}
     except HTTPException:
         raise
+    except GeminiUnavailable as e:
+        # Every model in the chain was overloaded — tell the user plainly
+        # instead of leaking the provider's raw error payload.
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         log.exception("extract_topics_failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=friendly_error(e))
 
 
 @app.post("/playlist_meta")
@@ -894,7 +969,7 @@ async def generate_guide(req: GenerationRequest, request: Request):
 
         prompt = build_prompt(topics_list, videos_payload)
         raw_matches = _gemini_generate(
-            req.gemini_key, MODEL_MATCH, prompt,
+            req.gemini_key, MODEL_MATCH_CHAIN, prompt,
             max_output_tokens=65536,
         )
         ai_matches = parse_ai_response(raw_matches)
@@ -953,9 +1028,11 @@ async def generate_guide(req: GenerationRequest, request: Request):
 
     except HTTPException:
         raise
+    except GeminiUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         log.exception("generate_guide_failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=friendly_error(e))
 
 
 # --- PDF rendering (pure — exercised by test_themes.py for every theme) -----
